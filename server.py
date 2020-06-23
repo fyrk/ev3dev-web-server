@@ -1,32 +1,40 @@
 #!/usr/bin/env python3
 print("Starting server...")
+print("Importing modules (this may take a while)...")
+import time
+t1 = time.perf_counter()
+import os
 import json
 import time
 import traceback
 from threading import Thread
-from HTTPWebSocketsHandler import HTTPWebSocketsHandler, ThreadedHTTPServer
+import tornado.web
+import tornado.websocket
+import tornado.httpserver
+from tornado.options import define, options
 from ev3dev2.motor import list_motors, Motor
 from ev3dev2.sensor import list_sensors, Sensor
 from ev3dev2 import Device
+t2 = time.perf_counter()
+print("Imported in", t2-t1)
+
+define("port", default=8000, help="run on the given port", type=int)
 
 
-class RequestHandler(HTTPWebSocketsHandler):
-    websockets = []
+class EV3InfoHandler(tornado.websocket.WebSocketHandler):
+    websockets = set()
 
-    def do_GET(self):
-        self.path = "/website" + self.path
-        return super().do_GET()
-        
-    def on_ws_connected(self):
-        self.websockets.append(self)
-        self.send_message(get_info(set(), set())[0])  # send complete info to client
-        
-    def on_ws_closed(self):
-        self.websockets.remove(self)
+    def open(self):
+        self.websockets.add(self)
+        self.write_message(get_info(set(), set())[0])
     
-    def on_ws_message(self, message):
-        data = json.loads(message.decode("utf-8"))
+    def on_close(self):
+        self.websockets.remove(self)
+
+    def on_message(self, message):
         try:
+            print("got message", message)
+            data = json.loads(message)
             device_type = data["deviceType"]
             port = data["port"]
             attributes = data["attributes"]
@@ -40,18 +48,14 @@ class RequestHandler(HTTPWebSocketsHandler):
                 setattr(device, name, value)
         except Exception:
             traceback.print_exc()
-
-
-def run(host="", port=8000):
-    try:
-        server = ThreadedHTTPServer((host, port), RequestHandler)
-        server.daemon_threads = True
-
-        print("serving at port", port)
-        print("SERVER STARTED")
-        server.serve_forever()
-    finally:
-        server.socket.close()
+    
+    @classmethod
+    def send_to_all(cls, message):
+        for websocket in cls.websockets:
+            try:
+                websocket.write_message(message)
+            except Exception:
+                traceback.print_exc()
 
 
 def get_info(old_sensor_addresses, old_motor_addresses):
@@ -119,17 +123,27 @@ def send_info():
     old_sensor_addresses = set()
     old_motor_addresses = set()
     while True:
-        if len(RequestHandler.websockets) == 0:
+        if len(EV3InfoHandler.websockets) == 0:
             print("Waiting for clients to connect...")
-            while len(RequestHandler.websockets) == 0:
+            while len(EV3InfoHandler.websockets) == 0:
                 time.sleep(0.5)
             print("Clients connected!")
         content, old_sensor_addresses, old_motor_addresses = get_info(old_sensor_addresses, old_motor_addresses)
-        for ws in RequestHandler.websockets:
-            ws.send_message(content)
+        EV3InfoHandler.send_to_all(content)
         time.sleep(0.1)
 
 
 if __name__ == "__main__":
-    Thread(target=run).start()
+    tornado.options.parse_command_line()
+    static_files = os.path.join(os.path.dirname(__file__), "website")
+    app = tornado.web.Application([
+            (r"/ev3-info", EV3InfoHandler),
+            (r"/(.*)", tornado.web.StaticFileHandler, {"path": static_files, "default_filename": "index.html"})
+        ],
+        static_path=os.path.join(os.path.dirname(__file__), "website")
+    )
+    app.listen(options.port)
+    print("Serving on port", options.port)
+    ioloop = tornado.ioloop.IOLoop.current()
+    Thread(target=ioloop.start).start()
     Thread(target=send_info).start()
