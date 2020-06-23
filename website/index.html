@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EV3 Web Server</title>
+    <link rel="stylesheet" href="bootstrap.min.css" />
+</head>
+<body class="ml-2 mr-2 mt-5 mb-3">
+    <template id="sensor-template">
+        <div class="col-12 col-sm-6 col-lg-3 p-1">
+            <div class="card">
+                <h5 class="card-header port"></h5>
+                <div class="card-body">
+                    <pre class="values">&lt;None&gt;</pre>
+                    <form>
+                        <div class="form-group row">
+                            <label for="selectMode" class="col-4 col-form-label">Mode:</label>
+                            <div class="col-8">
+                                <select name="selectMode" class="mode custom-select" disabled></select>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <div class="col">
+                                <select class="command custom-select" disabled></select>
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="sendCommandButton btn btn-primary" disabled>Send</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </template>
+    <template id="motor-template">
+        <div class="col-12 col-sm-6 col-lg-3 p-1">
+            <div class="card">
+                <h5 class="card-header port"></h5>
+                <div class="card-body">
+                    <pre class="positionDisplay">&lt;None&gt;</pre>
+                    <div class="form-group row">
+                        <label for="dutyCycleInput" class="col-5 col-form-label">Duty Cylce SP:</label>
+                        <div class="col-7">
+                            <div class="input-group">
+                                <input name="dutyCycleInput" type="number" class="duty_cycle_sp form-control" min="-100" max="100"
+                                    value="0" disabled initValue="0" />
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="polatiryInput" class="col-5 col-form-label">Polarity:</label>
+                        <div class="col-7">
+                            <select name="polatiryInput" class="polarity custom-select" disabled>
+                                <option>normal</option>
+                                <option>inversed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="positionSpInput" class="col-5 col-form-label">Position SP:</label>
+                        <div class="col-7">
+                            <div class="input-group">
+                                <input name="positionSpInput" type="number" class="position_sp form-control"
+                                    value="0" disabled initValue="0" />
+                                <div class="input-group-append">
+                                    <span class="input-group-text">TC</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="speedSpInput" class="col-5 col-form-label">Speed SP:</label>
+                        <div class="col-7">
+                            <div class="input-group">
+                                <input name="speedSpInput" type="number" class="speed_sp form-control"
+                                    value="0" disabled initValue="0" />
+                                <div class="input-group-append">
+                                    <span class="input-group-text">TC/s</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="rampUpSpInput" class="col-5 col-form-label">Ramp Up SP:</label>
+                        <div class="col-7">
+                            <div class="input-group">
+                                <input name="rampUpSpInput" type="number" class="ramp_up_sp form-control" min="0" max="1000"
+                                    value="0" disabled initValue="0" />
+                                <div class="input-group-append">
+                                    <span class="input-group-text">ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="rampDownSpInput" class="col-5 col-form-label">Ramp Down SP:</label>
+                        <div class="col-7">
+                            <div class="input-group">
+                                <input name="rampDownSpInput" type="number" class="ramp_down_sp form-control" min="0" max="1000"
+                                    value="0" disabled initValue="0" />
+                                <div class="input-group-append">
+                                    <span class="input-group-text">ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="stopActionInput" class="col-5 col-form-label">Stop Act.:</label>
+                        <div class="col-7">
+                            <select name="stopActionInput" class="stop_action custom-select" disabled>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="timeSpInput" class="col-5 col-form-label">Time SP:</label>
+                        <div class="col-7">
+                            <div class="input-group">
+                                <input name="timeSpInput" type="number" class="time_sp form-control" min="1"
+                                    value="1" disabled initValue="1" />
+                                <div class="input-group-append">
+                                    <span class="input-group-text">ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="positionInput" class="col-auto col-form-label">Pos.:</label>
+                        <div class="col">
+                            <input name="positionInput" type="number" class="positionInput form-control"
+                                value="0" disabled initValue="0" />
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="sendPositionButton btn btn-primary" disabled>Send</button>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col">
+                            <select class="command custom-select" disabled></select>
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="sendCommandButton btn btn-primary" disabled>Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+    <div id="alert-websocket-closed" class="alert alert-danger fixed-top" role="alert" hidden>
+        WebSocket connection closed. Try to <a href="javascript:window.location.reload()">reload the page</a>. 
+    </div>
+    <main class="container-xl">
+        <h1>Sensors</h1>
+        <div id="sensors-container" class="row"></div>
+
+        <h1>Motors</h1>
+        <div id="motors-container" class="row"></div>
+    </main>
+    <script src="main.js"></script>
+</body>
+</html>
