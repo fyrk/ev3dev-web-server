@@ -71,7 +71,7 @@ def get_info(old_sensor_addresses, old_motor_addresses):
                 }
             else:
                 info[address] = {
-                    "device_name": sensor.driver_name,
+                    "driver_name": sensor.driver_name,
                     "mode": {
                         "values": sensor.modes,
                         "selected": sensor.mode
@@ -95,7 +95,7 @@ def get_info(old_sensor_addresses, old_motor_addresses):
                 }
             else:
                 info[address] = {
-                    "device_name": motor.driver_name,
+                    "driver_name": motor.driver_name,
                     "duty_cycle_sp": motor.duty_cycle_sp,
                     "polarity": motor.polarity,
                     "position": motor.position,

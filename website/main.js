@@ -36,14 +36,13 @@ class Device {
      * @param {{string: string}} values Maps attribute names to new values
      */
     updateValues(values) {
-        Object.assign(this.attributeValues, values);
         for (let [attrName, attrValue] of Object.entries(values)) {
             const setter = this.attributeSetters[attrName];
             if (!setter) {
                 console.error("Could not find attribute '" + attrName + "'");
                 continue;
             }
-            setter.set(attrValue);
+            this.attributeValues[attrName] = setter.set(attrValue);
             setter.setDisabled(false);
         }
         for (let sender of Object.values(this.attributeSenders)) {
@@ -79,8 +78,11 @@ class AttributeSetter {
     /**
      * Set the attribute's value to {@link value}. 
      * @param {string} value new value
+     * @returns {string} the value that should be stored inside this.device.attributeValues
      */
-    set(value) { }
+    set(value) { 
+        return value;
+    }
 
     setDisabled(disabled) {
         this.elem.disabled = disabled;
@@ -94,6 +96,7 @@ class InputAttributeSetter extends AttributeSetter {
         } else {
             this.elem.value = this.elem.getAttribute("initValue");
         }
+        return super.set(value);
     }
 }
 class PredefinedSelectAttributeSetter extends AttributeSetter {
@@ -108,6 +111,7 @@ class PredefinedSelectAttributeSetter extends AttributeSetter {
         } else {
             this.elem.selectedIndex = 0;
         }
+        return super.set(value);
     }
 }
 class SelectAttributeSetter extends PredefinedSelectAttributeSetter {
@@ -132,16 +136,35 @@ class SelectAttributeSetter extends PredefinedSelectAttributeSetter {
                     this.elem.selectedIndex = i;
                 }
             }
+            return selected;
         }
+        return super.set(value);
     }
 }
-class PortAttributeSetter extends AttributeSetter {
+class DriverNameAttributeSetter extends AttributeSetter {
     set(value) {
         if (value != null) {
-            this.elem.textContent = value + " (" + this.device.portName + ")";
+            // translate device name into a more human-readable form, for some sensors and motors
+            const translated = {
+                "lego-ev3-us": "EV3 Ultrasonic Sensor",
+                "lego-ev3-gyro": "EV3 Gyro Sensor",
+                "lego-ev3-color": "EV3 Color Sensor",
+                "lego-ev3-touch": "EV3 Touch Sensor",
+                "lego-ev3-ir": "EV3 Infrared Sensor",
+
+                "lego-ev3-m-motor": "EV3 Medium Servo Motor",
+                "lego-ev3-l-motor": "EV3 Large Servo Motor",
+
+                "lego-nxt-temp": "NXT Temperature Sensor",
+                "lego-nxt-light": "NXT Light Sensor",
+                "lego-nxt-sound": "NXT Sound Sensor",
+                "lego-nxt-us": "NXT Ultrasonic Sensor"
+            }[value] || value;
+            this.elem.textContent = translated + " (" + this.device.portName + ")";
         } else {
             this.elem.textContent = "Port " + this.device.portName;
         }
+        return super.set(value);
     }
 }
 class MotorPositionAttributeSetter extends AttributeSetter {
@@ -151,15 +174,50 @@ class MotorPositionAttributeSetter extends AttributeSetter {
         } else {
             this.elem.textContent = "<None>";
         }
+        return super.set(value);
     }
 }
 class SensorValuesAttributeSetter extends AttributeSetter {
     set(value) {
         if (value != null) {
-            this.elem.textContent = value;
+            let translated = value;
+            try {
+                // translate values of some sensors into a more readable form
+                switch (this.device.attributeValues["driver_name"]) {
+                    case "lego-ev3-color":
+                        if (this.device.attributeValues["mode"] === "COL-COLOR") {
+                            translated = {
+                                "0": '<span class="circle"></span>No Color (0)',
+                                "1": '<span class="circle black-circle"></span>Black (1)',
+                                "2": '<span class="circle blue-circle"></span>Blue (2)',
+                                "3": '<span class="circle green-circle"></span>Green (3)',
+                                "4": '<span class="circle yellow-circle"></span>Yellow (4)',
+                                "5": '<span class="circle red-circle"></span>Red (5)',
+                                "6": '<span class="circle white-circle-with-border"></span>White (6)',
+                                "7": '<span class="circle brown-circle"></span>Brown (7)'
+                            }[value] || value;
+                        }
+                        break;
+                    case "lego-ev3-touch":
+                        translated = {
+                            "0": "Released (0)",
+                            "1": "Pressed (1)"
+                        }[value] || value;
+                        break;
+                    case "lego-ev3-ir":
+                        if (this.device.attributeValues["mode"] === "IR-REMOVE") {
+                            const values = value.split(' ');
+                        }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            
+            this.elem.innerHTML = translated;
         } else {
             this.elem.textContent = "<None>";
         }
+        return super.set(value);
     }
 }
 
@@ -241,7 +299,7 @@ class MotorDevice extends Device {
         super(ws, "motor", port, portName, {}, {});
         this.attributeSetters = {
             "position": new MotorPositionAttributeSetter(this, card.getElementsByClassName("positionDisplay")[0]),
-            "device_name": new PortAttributeSetter(this, card.getElementsByClassName("port")[0]),
+            "driver_name": new DriverNameAttributeSetter(this, card.getElementsByClassName("port")[0]),
             "duty_cycle_sp": new InputAttributeSetter(this, card.getElementsByClassName("duty_cycle_sp")[0]),
             "polarity": new PredefinedSelectAttributeSetter(this, card.getElementsByClassName("polarity")[0]),
             "position_sp": new InputAttributeSetter(this, card.getElementsByClassName("position_sp")[0]),
@@ -281,7 +339,7 @@ class SensorDevice extends Device {
         super(ws, "sensor", port, portName, {}, {});
         this.attributeSetters = {
             "values": new SensorValuesAttributeSetter(this, card.getElementsByClassName("values")[0]),
-            "device_name": new PortAttributeSetter(this, card.getElementsByClassName("port")[0]),
+            "driver_name": new DriverNameAttributeSetter(this, card.getElementsByClassName("port")[0]),
             "mode": new SelectAttributeSetter(this, card.getElementsByClassName("mode")[0]),
             "command": new InputAttributeSetter(this, card.getElementsByClassName("command")[0])
         };
