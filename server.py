@@ -7,7 +7,7 @@ import os
 import json
 import time
 import traceback
-from threading import Thread
+from threading import Thread, Lock
 import tornado.web
 import tornado.websocket
 import tornado.httpserver
@@ -23,13 +23,16 @@ define("port", default=8000, help="run on the given port", type=int)
 
 class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     websockets = set()
+    websockets_lock = Lock()
 
     def open(self):
-        self.websockets.add(self)
+        with self.websockets_lock:
+            self.websockets.add(self)
         self.write_message(get_info(set(), set())[0])
     
     def on_close(self):
-        self.websockets.remove(self)
+        with self.websockets_lock:
+            self.websockets.remove(self)
 
     def on_message(self, message):
         try:
@@ -51,11 +54,12 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     
     @classmethod
     def send_to_all(cls, message):
-        for websocket in cls.websockets:
-            try:
-                websocket.write_message(message)
-            except Exception:
-                traceback.print_exc()
+        with cls.websockets_lock:
+            for websocket in cls.websockets:
+                try:
+                    websocket.write_message(message)
+                except Exception:
+                    traceback.print_exc()
 
 
 def get_info(old_sensor_addresses, old_motor_addresses):
