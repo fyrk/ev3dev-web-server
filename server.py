@@ -62,12 +62,50 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
                     traceback.print_exc()
 
 
+"""
+Returns a string containing a JSON object which describes the current motor/sensor values in the following format:
+    {
+        "<address (e.g. "ev3-ports:in1")": {
+            // for both sensors and motors:
+            "driver_name": "<driver name>",
+            "command": [<list of possible commands>],
+            // for sensors:
+            "values": "<current sensor values, separated by space (max. 8)>",
+            "mode": {
+                "selected": "<currently selected mode>],
+                "values": [<list of possible modes>]
+            },
+            // for motors:
+            "position": "<current motor position>",
+            "duty_cycle_sp": "<duty cycle setpoint>",
+            "polarity": "normal" or "inversed",
+            "position_sp": "position setpoint",
+            "speed_sp": "speed setpoint",
+            "ramp_up_sp": "ramp up setpoint",
+            "ramp_down_sp": "ramp down setpoint",
+            "stop_action": {
+                "selected": "<currently selected stop_action>",
+                "values": [<list of possible stop_actions>]
+            },
+            "time_sp": "time setpoint",
+        }
+    }
+Parameters 'old_sensor_addressse' and 'old_motor_addresses' are sets of previously available adresses. 
+If an address was previously available, only "values" attribute (for sensors) or "position" attribute (for motors) is included.
+This is because these are the only properties that change while the user views the page. 
+When a WebSocket first connects with the server, get_info(set(), set()) is called so that initially the client receives all attributes (see EV3InfoHandler.open). 
+
+get_info returns: (string containing JSON object, new sensor addresses (for use in the next call of get_info), new motor addresses (for use in the next call of get_info)).
+"""
 def get_info(old_sensor_addresses, old_motor_addresses):
     info = {"disconnected_devices": []}
     sensor_addresses = set()
     for sensor in list_sensors("*"):
         try:
             address = sensor.address
+            if address.count(":") > 1:
+                # addresses for i2c sensors end with ':i2c*', remove this
+                address = address[:address.index(":", address.index(":")+1)]
             if address in old_sensor_addresses:
                 old_sensor_addresses.remove(address)
                 info[address] = {
