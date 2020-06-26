@@ -26,13 +26,13 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     websockets_lock = Lock()
 
     def open(self):
-        with self.websockets_lock:
-            self.websockets.add(self)
+        with EV3InfoHandler.websockets_lock:
+            EV3InfoHandler.websockets.add(self)
         self.write_message(get_info(set(), set())[0])
     
     def on_close(self):
-        with self.websockets_lock:
-            self.websockets.remove(self)
+        with EV3InfoHandler.websockets_lock:
+            EV3InfoHandler.websockets.remove(self)
 
     def on_message(self, message):
         try:
@@ -49,17 +49,20 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
                 raise ValueError("Unknown device type '" + device + "'")
             for name, value in attributes.items():
                 setattr(device, name, value)
+            # send changes to other clients
+            EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
         except Exception:
             traceback.print_exc()
     
     @classmethod
-    def send_to_all(cls, message):
+    def send_to_all(cls, message, exclude_websockets=None):
         with cls.websockets_lock:
             for websocket in cls.websockets:
-                try:
-                    websocket.write_message(message)
-                except Exception:
-                    traceback.print_exc()
+                if not exclude_websockets or websocket not in exclude_websockets:
+                    try:
+                        websocket.write_message(message)
+                    except Exception:
+                        traceback.print_exc()
 
 
 """

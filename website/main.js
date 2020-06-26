@@ -114,14 +114,25 @@ class PredefinedSelectAttributeSetter extends AttributeSetter {
         return super.set(value);
     }
 }
-class SelectAttributeSetter extends PredefinedSelectAttributeSetter {
+class SelectAttributeSetter extends AttributeSetter {
     set(value) {
+        if (typeof value === "string") {
+            // only a string (which is the selected option's text) is sent by the server if another client changed the value
+            for (let i = 0; i < this.elem.options.length; i++) {
+                if (this.elem.options[i].text === value) {
+                    this.elem.selectedIndex = i;
+                    break;
+                }
+            }
+            return;
+        } 
         while (this.elem.options.length > 0)
             this.elem.remove(0);
         if (value != null) {
             let values;
             let selected;
             if (Array.isArray(value)) {
+                // this is for selects where option is not saved (e.g. commands. They can only be sent, but are not stored - in contrast to modes)
                 values = value;
                 selected = null;
             } else {
