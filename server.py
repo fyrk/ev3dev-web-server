@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 print("Starting server...")
+from ev3dev2.console import Console
+Console("Lat15-Terminus12x6")
 print("Importing modules (this may take a while)...")
 import time
 t1 = time.perf_counter()
@@ -14,12 +16,16 @@ import tornado.httpserver
 from tornado.options import define, options
 from ev3dev2.motor import list_motors, Motor
 from ev3dev2.sensor import list_sensors, Sensor
+from ev3dev2.led import Leds
 from ev3dev2 import Device
 t2 = time.perf_counter()
 print("Imported in", t2-t1)
 
 define("port", default=8000, help="run on the given port", type=int)
 
+LEDS = Leds()
+LEDS.all_off()
+LEDS.reset()
 
 class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     websockets = set()
@@ -28,7 +34,7 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         with EV3InfoHandler.websockets_lock:
             EV3InfoHandler.websockets.add(self)
-        self.write_message(get_info(set(), set())[0])
+        self.write_message(get_info(set(), set(), True)[0])
     
     def on_close(self):
         with EV3InfoHandler.websockets_lock:
@@ -45,6 +51,12 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
                 device = Sensor(port)
             elif device_type == "motor":
                 device = Motor(port)
+            elif device_type == "led":
+                led_group = port.split(":")[1].lower()
+                for color_name, brightness in attributes.items():
+                    LEDS.leds[color_name + "_" + led_group].brightness_pct = float(brightness)
+                EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
+                return
             else:
                 raise ValueError("Unknown device type '" + device + "'")
             for name, value in attributes.items():
@@ -96,12 +108,16 @@ Returns a string containing a JSON object which describes the current motor/sens
 Parameters 'old_sensor_addressse' and 'old_motor_addresses' are sets of previously available adresses. 
 If an address was previously available, only "values" attribute (for sensors) or "position" attribute (for motors) is included.
 This is because these are the only properties that change while the user views the page. 
+If 'all_info' is True, additional info is added: LED brightnesses. 
 When a WebSocket first connects with the server, get_info(set(), set()) is called so that initially the client receives all attributes (see EV3InfoHandler.open). 
 
 get_info returns: (string containing JSON object, new sensor addresses (for use in the next call of get_info), new motor addresses (for use in the next call of get_info)).
 """
-def get_info(old_sensor_addresses, old_motor_addresses):
+def get_info(old_sensor_addresses, old_motor_addresses, all_info=False):
     info = {"disconnected_devices": []}
+    if all_info:
+        for group_name, leds in LEDS.led_groups.items():
+            info["led:" + group_name] = {led.desc.split("_")[0]: led.brightness_pct for led in leds}
     sensor_addresses = set()
     for sensor in list_sensors("*"):
         try:

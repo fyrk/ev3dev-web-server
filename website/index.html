@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>EV3 Web Server</title>
     <link rel="stylesheet" href="bootstrap.min.css" />
     <style>
@@ -40,31 +41,41 @@
         pre.values, pre.positionDisplay {
             white-space: normal;
         }
+
+        #alert-websocket-closed {
+            width: fit-content;
+        }
+        .footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            line-height: 60px;
+            display: block;
+        }
     </style>
 </head>
-<body class="ml-2 mr-2 mt-5 mb-3">
+<body class="d-flex flex-column h-100">
     <template id="sensor-template">
         <div class="col-12 col-sm-6 col-lg-3 p-1">
             <div class="card">
                 <h5 class="card-header port"></h5>
                 <div class="card-body">
                     <pre class="values">&lt;None&gt;</pre>
-                    <form>
-                        <div class="form-group row">
-                            <label for="selectMode" class="col-4 col-form-label">Mode:</label>
-                            <div class="col-8">
-                                <select name="selectMode" class="mode custom-select" disabled></select>
-                            </div>
+                    <div class="form-group row">
+                        <label for="selectMode" class="col-4 col-form-label">Mode:</label>
+                        <div class="col-8">
+                            <select name="selectMode" class="mode custom-select" disabled></select>
                         </div>
-                        <div class="form-group row">
-                            <div class="col">
-                                <select class="command custom-select" disabled></select>
-                            </div>
-                            <div class="col-auto">
-                                <button type="button" class="sendCommandButton btn btn-primary" disabled>Send</button>
-                            </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col">
+                            <select class="command custom-select" disabled></select>
                         </div>
-                    </form>
+                        <div class="col-auto">
+                            <button type="button" class="sendCommandButton btn btn-primary" disabled>Send</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -185,16 +196,47 @@
             </div>
         </div>
     </template>
-    <div id="alert-websocket-closed" class="alert alert-danger fixed-top" role="alert" hidden>
+    <template id="led-template">
+        <div class="col-12 col-sm-6 col-lg-3 p-1">
+            <div class="card">
+                <h5 class="card-header port"></h5>
+                <div class="card-body">
+                    <div class="form-group row">
+                        <label for="redLed" class="col-4 col-form-label">Red</label>
+                        <div class="col-8">
+                            <input name="redLed" type="range" min="0" max="1" class="redLed" step="0.05" value="0" />
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="greenLed" class="col-4 col-form-label">Green</label>
+                        <div class="col-8">
+                            <input name="greenLed" type="range" min="0" max="1" class="greenLed" step="0.05" value="1" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+    <div id="alert-websocket-closed" class="alert alert-danger fixed-bottom m-2" role="alert" hidden>
         WebSocket connection closed. Try to <a href="javascript:window.location.reload()">reload the page</a>. 
     </div>
-    <main class="container-xl">
-        <h1>Sensors</h1>
-        <div id="sensors-container" class="row"></div>
+    <div class="ml-2 mr-2 mt-3 mb-3">
+        <main role="main" class="container-xl">
+            <h1>Sensors</h1>
+            <div id="sensors-container" class="row"></div>
 
-        <h1>Motors</h1>
-        <div id="motors-container" class="row"></div>
-    </main>
+            <h1>Motors</h1>
+            <div id="motors-container" class="row"></div>
+
+            <h1>Leds</h1>
+            <div id="leds-container" class="row"></div>
+        </main>
+    </div>
+    <footer class="mt-auto py-3 bg-dark text-white">
+        <div class="text-center">
+            <a href="https://github.com/FlorianRaediker/ev3dev-web-server" target="_blank" class="text-white-50">ev3dev-web-server</a> created by Florian Rädiker
+        </div>
+    </footer>
     <script src="main.js"></script>
 </body>
 </html>

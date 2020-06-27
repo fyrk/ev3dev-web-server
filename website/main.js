@@ -253,6 +253,9 @@ class AttributeSender {
 class NormalAttributeSender extends AttributeSender {
     constructor(device, name, inputElem, event) {
         super(device, name, inputElem);
+        this.addEventListener(event);
+    }
+    addEventListener(event) {
         this.inputElem.addEventListener(event, () => this.device.onUpdateValue(this.name, this.getValue()));
     }
 }
@@ -300,6 +303,8 @@ class SelectAttributeSenderOnButton extends AttributeSenderOnButton {
  * Represents one motor port
  */
 class MotorDevice extends Device {
+    static TYPE = "motor";
+
     /**
      * @param {WebSocket} ws see {@link Device}
      * @param {string} port see {@link Device}
@@ -340,6 +345,8 @@ class MotorDevice extends Device {
  * Represents one sensor port
  */
 class SensorDevice extends Device {
+    static TYPE = "sensor";
+
     /**
      * @param {WebSocket} ws see {@link Device}
      * @param {string} port see {@link Device}
@@ -361,28 +368,64 @@ class SensorDevice extends Device {
     }
 }
 
+/**
+ * Represents one led
+ */
+class LedDevice extends Device {
+    static TYPE = "led";
+
+    constructor(ws, port, portName, card) {
+        super(ws, "led", port, portName, {}, {});
+        card.getElementsByClassName("port")[0].textContent = portName.toUpperCase();
+        this.attributeSetters = {
+            "green": new InputAttributeSetter(this, card.getElementsByClassName("greenLed")[0]),
+            "red": new InputAttributeSetter(this, card.getElementsByClassName("redLed")[0]),
+        };
+        this.attributeSenders = {
+            "green": new InputAttributeSender(this, "green", card.getElementsByClassName("greenLed")[0]),
+            "red": new InputAttributeSender(this, "red", card.getElementsByClassName("redLed")[0])
+        }
+    }
+    onUpdateValue(attrName, newValue) {
+        this.attributeValues[attrName] = newValue;
+        this.ws.send(JSON.stringify({ deviceType: this.deviceType, port: this.port, attributes: { [attrName]: newValue } }));
+    }
+}
+
 
 window.onload = () => {
-    const SENSOR_TEMPLATE = document.getElementById("sensor-template");
-    const MOTOR_TEMPLATE = document.getElementById("motor-template");
-
-    const SENSOR_CONTAINER = document.getElementById("sensors-container");
-    const MOTOR_CONTAINER = document.getElementById("motors-container");
+    const TEMPLATES = {
+        [SensorDevice.TYPE]: document.getElementById("sensor-template"),
+        [MotorDevice.TYPE]: document.getElementById("motor-template"),
+        [LedDevice.TYPE]: document.getElementById("led-template")
+    }
+    const CONTAINERS = {
+        [SensorDevice.TYPE]: document.getElementById("sensors-container"),
+        [MotorDevice.TYPE]: document.getElementById("motors-container"),
+        [LedDevice.TYPE]: document.getElementById("leds-container")
+    }
 
     const alertWebsocketClosed = document.getElementById("alert-websocket-closed");
     
-    const SENSOR_PORTS = [
-        ["ev3-ports:in1", "1"],
-        ["ev3-ports:in2", "2"],
-        ["ev3-ports:in3", "3"],
-        ["ev3-ports:in4", "4"]
+    const PORTS = [
+        [SensorDevice.TYPE, "ev3-ports:in1", "1"],
+        [SensorDevice.TYPE, "ev3-ports:in2", "2"],
+        [SensorDevice.TYPE, "ev3-ports:in3", "3"],
+        [SensorDevice.TYPE, "ev3-ports:in4", "4"],
+
+        [MotorDevice.TYPE, "ev3-ports:outA", "A"],
+        [MotorDevice.TYPE, "ev3-ports:outB", "B"],
+        [MotorDevice.TYPE, "ev3-ports:outC", "C"],
+        [MotorDevice.TYPE, "ev3-ports:outD", "D"],
+
+        [LedDevice.TYPE, "led:LEFT", "left"],
+        [LedDevice.TYPE, "led:RIGHT", "right"]
     ];
-    const MOTOR_PORTS = [
-        ["ev3-ports:outA", "A"],
-        ["ev3-ports:outB", "B"],
-        ["ev3-ports:outC", "C"],
-        ["ev3-ports:outD", "D"]
-    ];
+    const DEVICES = {
+        [SensorDevice.TYPE]: SensorDevice,
+        [MotorDevice.TYPE]: MotorDevice,
+        [LedDevice.TYPE]: LedDevice
+    }
 
     let ws = null;
 
@@ -417,15 +460,9 @@ window.onload = () => {
         };
     }
 
-    for (let [port, portName] of SENSOR_PORTS) {
-        const newCard = SENSOR_TEMPLATE.content.firstElementChild.cloneNode(true);
-        devices[port] = new SensorDevice(ws, port, portName, newCard);
-        SENSOR_CONTAINER.appendChild(newCard);
-    }
-
-    for (let [port, portName] of MOTOR_PORTS) {
-        const newCard = MOTOR_TEMPLATE.content.firstElementChild.cloneNode(true);
-        devices[port] = new MotorDevice(ws, port, portName, newCard);
-        MOTOR_CONTAINER.appendChild(newCard);
+    for (let [deviceType, port, portName] of PORTS) {
+        const newCard = TEMPLATES[deviceType].content.firstElementChild.cloneNode(true);
+        devices[port] = new DEVICES[deviceType](ws, port, portName, newCard);
+        CONTAINERS[deviceType].appendChild(newCard);
     }
 };
