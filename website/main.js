@@ -1,6 +1,11 @@
 /**
  * This class represents one device (motor or sensor). 
  */
+window.onerror = (message, source, lineno, colno, error) => {
+    console.log("error", message, source, lineno, colno, error);
+    document.getElementById("error-log").innerHTML += `<p>message: ${message}, source: ${source}, lineno: ${lineno}, colno: ${colno}, error: ${error}</p>`;
+}
+
 class Device {
     /**
      * @param {WebSocket} ws WebSocket to send changed values to 
@@ -57,7 +62,7 @@ class Device {
      */
     onUpdateValue(attrName, newValue) {
         this.attributeValues[attrName] = newValue;
-        this.ws.send(JSON.stringify({ deviceType: this.deviceType, port: this.port, attributes: { [attrName]: newValue } }));
+        this.ws.send(JSON.stringify({ type: this.deviceType, port: this.port, attributes: { [attrName]: newValue } }));
     }
 }
 
@@ -388,7 +393,7 @@ class LedDevice extends Device {
     }
     onUpdateValue(attrName, newValue) {
         this.attributeValues[attrName] = newValue;
-        this.ws.send(JSON.stringify({ deviceType: this.deviceType, port: this.port, attributes: { [attrName]: newValue } }));
+        this.ws.send(JSON.stringify({ type: this.deviceType, port: this.port, attributes: { [attrName]: newValue } }));
     }
 }
 
@@ -460,9 +465,109 @@ window.onload = () => {
         };
     }
 
+    // DEVICES
     for (let [deviceType, port, portName] of PORTS) {
         const newCard = TEMPLATES[deviceType].content.firstElementChild.cloneNode(true);
         devices[port] = new DEVICES[deviceType](ws, port, portName, newCard);
         CONTAINERS[deviceType].appendChild(newCard);
     }
+
+    
+    // STEERING
+    const circle = document.getElementById("large-steering-circle");
+    const joystick = document.getElementById("joystick-steering-circle");
+    let circleRadius = 250;  // circle radius to calculate joystick position
+    let circleRadiusSmaller = 250;  // circle radius the position is clamped to
+
+    let isDragging = false;
+    let currentX = 0;
+    let currentY = 0;
+    let hasPosChanged = false;
+    function dragStart(event) {
+        isDragging = true;
+        setPosition(event);
+    }
+    function drag(event) {
+        if (isDragging) {
+            event.preventDefault();
+            setPosition(event);
+        }
+    }
+    function setPosition(event) {
+        if (event.type === "touchmove" || event.type === "touchstart") {
+            const rect = circle.getBoundingClientRect();
+            currentX = event.touches[0].clientX - rect.left - circleRadius;
+            currentY = event.touches[0].clientY - rect.top - circleRadius;
+        } else {
+            currentX = event.offsetX - circleRadius;
+            currentY = event.offsetY - circleRadius;
+        }
+        if (Math.abs(currentX) < circleRadius / 10) {
+            currentX = 0;
+        }
+        if (Math.abs(currentY) < circleRadius / 20) {
+            currentY = 0;
+        }
+        // clamp currentX/Y to outer circle
+        const distance = Math.sqrt(currentX * currentX + currentY * currentY);
+        if (distance > circleRadiusSmaller) {
+            currentX = currentX / (distance / circleRadiusSmaller);
+            currentY = currentY / (distance / circleRadiusSmaller);
+        }
+        hasPosChanged = true;
+        setJoystickPosition();
+    }
+    function dragEnd(event) {
+        isDragging = false;
+    }
+    function setJoystickPosition() {
+        joystick.style.transform = "translate(" + currentX + "px," + currentY + "px)";
+    }
+
+    let counter = 0;
+    setInterval(() => {
+        if (!isDragging && (currentX !== 0 || currentY !== 0)) {
+            // move circle back to middle
+            let distance = Math.sqrt(currentX * currentX + currentY * currentY);
+            distance = distance / (distance - (circleRadius / 100));
+            currentX = currentX / distance;
+            currentY = currentY / distance;
+            if (Math.abs(currentX) < circleRadius / 100) {
+                currentX = 0;
+            }
+            if (Math.abs(currentY) < circleRadius / 100) {
+                currentY = 0;
+            }
+            setJoystickPosition();
+            hasPosChanged = true;
+        }
+        counter++;
+        if (counter > 20 && hasPosChanged) {
+            counter = 0;
+            hasPosChanged = false;
+            ws.send(JSON.stringify({ type: "rc-joystick:set-pos", x: currentX / circleRadius, y: -currentY / circleRadius }));
+        }
+    }, 10);
+    
+    function resize() {
+        circleRadius = circle.clientHeight / 2;
+        circleRadiusSmaller = circle.clientHeight / 2.1;
+        // resize joystick
+        const radius = Math.sqrt(circle.clientHeight)*2.23606797749979;
+        joystick.style.width = radius + "px";
+        joystick.style.height = radius + "px";
+        joystick.style.marginTop = "calc(50% - " + radius / 2 + "px)";
+        // make joystick stay inside circle
+        setJoystickPosition();
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    circle.addEventListener("mousedown", dragStart, false);
+    circle.addEventListener("touchstart", dragStart, false);
+    circle.addEventListener("mousemove", drag, false);
+    circle.addEventListener("touchmove", drag, false);
+    circle.addEventListener("mouseup", dragEnd, false);
+    circle.addEventListener("touchend", dragEnd, false);
+    circle.addEventListener("touchcancel", dragEnd, false);
 };

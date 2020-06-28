@@ -14,7 +14,7 @@ import tornado.web
 import tornado.websocket
 import tornado.httpserver
 from tornado.options import define, options
-from ev3dev2.motor import list_motors, Motor
+from ev3dev2.motor import list_motors, Motor, MoveJoystick, OUTPUT_B, OUTPUT_C
 from ev3dev2.sensor import list_sensors, Sensor
 from ev3dev2.led import Leds
 from ev3dev2 import Device
@@ -26,6 +26,8 @@ define("port", default=8000, help="run on the given port", type=int)
 LEDS = Leds()
 LEDS.all_off()
 LEDS.reset()
+
+move_joystick = MoveJoystick(OUTPUT_B, OUTPUT_C, motor_class=Motor)
 
 class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     websockets = set()
@@ -41,28 +43,41 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
             EV3InfoHandler.websockets.remove(self)
 
     def on_message(self, message):
+        global move_joystick
         try:
             print("got message", message)
             data = json.loads(message)
-            device_type = data["deviceType"]
-            port = data["port"]
-            attributes = data["attributes"]
-            if device_type == "sensor":
-                device = Sensor(port)
-            elif device_type == "motor":
+            type_ = data["type"]
+            if type_ == "sensor":
+                port = data["port"]
+                attributes = data["attributes"]
+                device = Sensor()
+                for name, value in attributes.items():
+                    setattr(device, name, value)
+                # send changes to other clients
+                EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
+            elif type_ == "motor":
+                port = data["port"]
+                attributes = data["attributes"]
                 device = Motor(port)
-            elif device_type == "led":
+                for name, value in attributes.items():
+                    setattr(device, name, value)
+                # send changes to other clients
+                EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
+            elif type_ == "led":
+                port = data["port"]
+                attributes = data["attributes"]
                 led_group = port.split(":")[1].lower()
                 for color_name, brightness in attributes.items():
                     LEDS.leds[color_name + "_" + led_group].brightness_pct = float(brightness)
+                # send changes to other clients
                 EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
-                return
+            elif type_ == "rc-joystick:set-pos":
+                move_joystick.on(data["x"], data["y"], 1)
+            elif type_ == "rc-joystick:set-ports":
+                move_joystick = MoveJoystick(data["port-left"], data["port-right"], motor_class=Motor)
             else:
-                raise ValueError("Unknown device type '" + device + "'")
-            for name, value in attributes.items():
-                setattr(device, name, value)
-            # send changes to other clients
-            EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
+                raise ValueError("Unknown message type '" + device + "'")
         except Exception:
             traceback.print_exc()
     
@@ -194,12 +209,17 @@ def send_info():
         time.sleep(0.1)
 
 
+class StaticFiles(tornado.web.StaticFileHandler):
+     def set_extra_headers(self, path):
+        self.set_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+
+
 if __name__ == "__main__":
     tornado.options.parse_command_line()
     static_files = os.path.join(os.path.dirname(__file__), "website")
     app = tornado.web.Application([
             (r"/ev3-info", EV3InfoHandler),
-            (r"/(.*)", tornado.web.StaticFileHandler, {"path": static_files, "default_filename": "index.html"})
+            (r"/(.*)", StaticFiles, {"path": static_files, "default_filename": "index.html"})
         ],
         static_path=os.path.join(os.path.dirname(__file__), "website")
     )

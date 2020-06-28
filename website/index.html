@@ -14,37 +14,46 @@
             margin-right: 0.3em;
             border-radius: 1em;
         }
-        
+
         .black-circle {
             background-color: #000000;
         }
+
         .blue-circle {
             background-color: #034FC0;
         }
+
         .green-circle {
             background-color: #1ABA10;
         }
+
         .yellow-circle {
             background-color: #E1CB20;
         }
+
         .red-circle {
             background-color: #BE091D;
         }
+
         .white-circle-with-border {
             background-color: #FFFFFF;
             border: 1px solid #000000;
         }
+
         .brown-circle {
             background-color: #581903;
         }
 
-        pre.values, pre.positionDisplay {
+        pre.values,
+        pre.positionDisplay {
             white-space: normal;
         }
 
         #alert-websocket-closed {
             width: fit-content;
+            width: -moz-fit-content;
         }
+
         .footer {
             position: absolute;
             bottom: 0;
@@ -52,6 +61,85 @@
             height: 60px;
             line-height: 60px;
             display: block;
+        }
+
+        .steering-input {
+            writing-mode: bt-lr;
+            /* IE */
+            -webkit-appearance: slider-vertical;
+            /* WebKit */
+            height: 100%;
+            width: 1.5rem;
+        }
+
+        .steering-input::-webkit-slider-runnable-track {
+            width: 0.5rem;
+            height: 100%;
+        }
+
+        .custom-range::-webkit-slider-thumb {
+            margin-right: -.25rem;
+        }
+
+        .steering-input::-moz-range-track {
+            width: 0.5rem;
+            height: 100%;
+        }
+        
+        #steering-container {
+            display: inline-block;
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            
+        }
+        #steering-dummy {
+            margin-top: 100%;
+        }
+
+        #large-steering-circle, #joystick-steering-circle, #steering-vertical-line, #steering-middle-dot {
+            touch-action: none;
+            cursor: pointer;
+        }
+
+        #large-steering-circle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #808080;
+            border-radius: 250px;
+        }
+        #joystick-steering-circle {
+            width: 50px;
+            height: 50px;
+            background-color: red;
+            border-radius: 25px;
+            margin: auto;
+            margin-top: calc(50% - 25px);
+            pointer-events: none;
+        }
+        #steering-vertical-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 49.5%;
+            right: 49.5%;
+            background-color: #a9a9a9;
+            margin: auto;
+            pointer-events: none;
+       }
+        #steering-middle-dot {
+            position: absolute;
+            top: 48%;
+            bottom: 48%;
+            left: 48%;
+            right: 48%;
+            background-color: #a9a9a9;
+            border-radius: 25px;
+            margin: auto;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -90,8 +178,8 @@
                         <label for="dutyCycleInput" class="col-5 col-form-label">Duty Cylce SP:</label>
                         <div class="col-7">
                             <div class="input-group">
-                                <input name="dutyCycleInput" type="number" class="duty_cycle_sp form-control" min="-100" max="100"
-                                    value="0" disabled initValue="0" />
+                                <input name="dutyCycleInput" type="number" class="duty_cycle_sp form-control" min="-100"
+                                    max="100" value="0" disabled initValue="0" />
                                 <div class="input-group-append">
                                     <span class="input-group-text">%</span>
                                 </div>
@@ -111,8 +199,8 @@
                         <label for="positionSpInput" class="col-5 col-form-label">Position SP:</label>
                         <div class="col-7">
                             <div class="input-group">
-                                <input name="positionSpInput" type="number" class="position_sp form-control"
-                                    value="0" disabled initValue="0" />
+                                <input name="positionSpInput" type="number" class="position_sp form-control" value="0"
+                                    disabled initValue="0" />
                                 <div class="input-group-append">
                                     <span class="input-group-text">TC</span>
                                 </div>
@@ -123,8 +211,8 @@
                         <label for="speedSpInput" class="col-5 col-form-label">Speed SP:</label>
                         <div class="col-7">
                             <div class="input-group">
-                                <input name="speedSpInput" type="number" class="speed_sp form-control"
-                                    value="0" disabled initValue="0" />
+                                <input name="speedSpInput" type="number" class="speed_sp form-control" value="0"
+                                    disabled initValue="0" />
                                 <div class="input-group-append">
                                     <span class="input-group-text">TC/s</span>
                                 </div>
@@ -135,8 +223,8 @@
                         <label for="rampUpSpInput" class="col-5 col-form-label">Ramp Up SP:</label>
                         <div class="col-7">
                             <div class="input-group">
-                                <input name="rampUpSpInput" type="number" class="ramp_up_sp form-control" min="0" max="1000"
-                                    value="0" disabled initValue="0" />
+                                <input name="rampUpSpInput" type="number" class="ramp_up_sp form-control" min="0"
+                                    max="1000" value="0" disabled initValue="0" />
                                 <div class="input-group-append">
                                     <span class="input-group-text">ms</span>
                                 </div>
@@ -147,8 +235,8 @@
                         <label for="rampDownSpInput" class="col-5 col-form-label">Ramp Down SP:</label>
                         <div class="col-7">
                             <div class="input-group">
-                                <input name="rampDownSpInput" type="number" class="ramp_down_sp form-control" min="0" max="1000"
-                                    value="0" disabled initValue="0" />
+                                <input name="rampDownSpInput" type="number" class="ramp_down_sp form-control" min="0"
+                                    max="1000" value="0" disabled initValue="0" />
                                 <div class="input-group-append">
                                     <span class="input-group-text">ms</span>
                                 </div>
@@ -166,8 +254,8 @@
                         <label for="timeSpInput" class="col-5 col-form-label">Time SP:</label>
                         <div class="col-7">
                             <div class="input-group">
-                                <input name="timeSpInput" type="number" class="time_sp form-control" min="1"
-                                    value="1" disabled initValue="1" />
+                                <input name="timeSpInput" type="number" class="time_sp form-control" min="1" value="1"
+                                    disabled initValue="1" />
                                 <div class="input-group-append">
                                     <span class="input-group-text">ms</span>
                                 </div>
@@ -177,8 +265,8 @@
                     <div class="form-group row">
                         <label for="positionInput" class="col-auto col-form-label">Pos.:</label>
                         <div class="col">
-                            <input name="positionInput" type="number" class="positionInput form-control"
-                                value="0" disabled initValue="0" />
+                            <input name="positionInput" type="number" class="positionInput form-control" value="0"
+                                disabled initValue="0" />
                         </div>
                         <div class="col-auto">
                             <button type="button" class="sendPositionButton btn btn-primary" disabled>Send</button>
@@ -204,13 +292,13 @@
                     <div class="form-group row">
                         <label for="redLed" class="col-4 col-form-label">Red</label>
                         <div class="col-8">
-                            <input name="redLed" type="range" min="0" max="1" class="redLed" step="0.05" value="0" />
+                            <input name="redLed" type="range" min="0" max="1" class="redLed custom-range" step="any" value="0" />
                         </div>
                     </div>
                     <div class="form-group row">
                         <label for="greenLed" class="col-4 col-form-label">Green</label>
                         <div class="col-8">
-                            <input name="greenLed" type="range" min="0" max="1" class="greenLed" step="0.05" value="1" />
+                            <input name="greenLed" type="range" min="0" max="1" class="greenLed custom-range" step="any" value="1" />
                         </div>
                     </div>
                 </div>
@@ -218,10 +306,22 @@
         </div>
     </template>
     <div id="alert-websocket-closed" class="alert alert-danger fixed-bottom m-2" role="alert" hidden>
-        WebSocket connection closed. Try to <a href="javascript:window.location.reload()">reload the page</a>. 
+        WebSocket connection closed. Try to <a href="javascript:window.location.reload()">reload the page</a>.
     </div>
     <div class="ml-2 mr-2 mt-3 mb-3">
         <main role="main" class="container-xl">
+            <h1>Steering</h1>
+            <div class="pb-2 text-center">
+                <div id="steering-container">
+                    <div id="steering-dummy"></div>
+                    <div id="large-steering-circle">
+                        <div id="steering-vertical-line"></div>
+                        <div id="steering-middle-dot"></div>
+                        <div id="joystick-steering-circle">
+                        </div>
+                    </div>
+                </div>
+            </div>
             <h1>Sensors</h1>
             <div id="sensors-container" class="row"></div>
 
@@ -234,7 +334,11 @@
     </div>
     <footer class="mt-auto py-3 bg-dark text-white">
         <div class="text-center">
-            <a href="https://github.com/FlorianRaediker/ev3dev-web-server" target="_blank" class="text-white-50">ev3dev-web-server</a> created by Florian Rädiker
+            <a href="https://github.com/FlorianRaediker/ev3dev-web-server" target="_blank"
+                class="text-white-50">ev3dev-web-server</a> created by Florian Rädiker
+        </div>
+        <div id="error-log">
+            
         </div>
     </footer>
     <script src="main.js"></script>
