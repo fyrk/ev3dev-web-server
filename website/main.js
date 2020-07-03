@@ -7,6 +7,10 @@ window.onerror = (message, source, lineno, colno, error) => {
 }
 
 class Device {
+    static getType() {
+        return null;
+    }
+
     /**
      * @param {WebSocket} ws WebSocket to send changed values to 
      * @param {string} deviceType "motor" or "sensor"
@@ -308,7 +312,9 @@ class SelectAttributeSenderOnButton extends AttributeSenderOnButton {
  * Represents one motor port
  */
 class MotorDevice extends Device {
-    static TYPE = "motor";
+    static getType() {
+        return "motor";
+    }
 
     /**
      * @param {WebSocket} ws see {@link Device}
@@ -350,7 +356,9 @@ class MotorDevice extends Device {
  * Represents one sensor port
  */
 class SensorDevice extends Device {
-    static TYPE = "sensor";
+    static getType() {
+        return "sensor";
+    }
 
     /**
      * @param {WebSocket} ws see {@link Device}
@@ -377,7 +385,9 @@ class SensorDevice extends Device {
  * Represents one led
  */
 class LedDevice extends Device {
-    static TYPE = "led";
+    static getType() {
+        return "led";
+    }
 
     constructor(ws, port, portName, card) {
         super(ws, "led", port, portName, {}, {});
@@ -400,36 +410,36 @@ class LedDevice extends Device {
 
 window.onload = () => {
     const TEMPLATES = {
-        [SensorDevice.TYPE]: document.getElementById("sensor-template"),
-        [MotorDevice.TYPE]: document.getElementById("motor-template"),
-        [LedDevice.TYPE]: document.getElementById("led-template")
+        [SensorDevice.getType()]: document.getElementById("sensor-template"),
+        [MotorDevice.getType()]: document.getElementById("motor-template"),
+        [LedDevice.getType()]: document.getElementById("led-template")
     }
     const CONTAINERS = {
-        [SensorDevice.TYPE]: document.getElementById("sensors-container"),
-        [MotorDevice.TYPE]: document.getElementById("motors-container"),
-        [LedDevice.TYPE]: document.getElementById("leds-container")
+        [SensorDevice.getType()]: document.getElementById("sensors-container"),
+        [MotorDevice.getType()]: document.getElementById("motors-container"),
+        [LedDevice.getType()]: document.getElementById("leds-container")
     }
 
     const alertWebsocketClosed = document.getElementById("alert-websocket-closed");
     
     const PORTS = [
-        [SensorDevice.TYPE, "ev3-ports:in1", "1"],
-        [SensorDevice.TYPE, "ev3-ports:in2", "2"],
-        [SensorDevice.TYPE, "ev3-ports:in3", "3"],
-        [SensorDevice.TYPE, "ev3-ports:in4", "4"],
+        [SensorDevice.getType(), "ev3-ports:in1", "1"],
+        [SensorDevice.getType(), "ev3-ports:in2", "2"],
+        [SensorDevice.getType(), "ev3-ports:in3", "3"],
+        [SensorDevice.getType(), "ev3-ports:in4", "4"],
 
-        [MotorDevice.TYPE, "ev3-ports:outA", "A"],
-        [MotorDevice.TYPE, "ev3-ports:outB", "B"],
-        [MotorDevice.TYPE, "ev3-ports:outC", "C"],
-        [MotorDevice.TYPE, "ev3-ports:outD", "D"],
+        [MotorDevice.getType(), "ev3-ports:outA", "A"],
+        [MotorDevice.getType(), "ev3-ports:outB", "B"],
+        [MotorDevice.getType(), "ev3-ports:outC", "C"],
+        [MotorDevice.getType(), "ev3-ports:outD", "D"],
 
-        [LedDevice.TYPE, "led:LEFT", "left"],
-        [LedDevice.TYPE, "led:RIGHT", "right"]
+        [LedDevice.getType(), "led:LEFT", "left"],
+        [LedDevice.getType(), "led:RIGHT", "right"]
     ];
     const DEVICES = {
-        [SensorDevice.TYPE]: SensorDevice,
-        [MotorDevice.TYPE]: MotorDevice,
-        [LedDevice.TYPE]: LedDevice
+        [SensorDevice.getType()]: SensorDevice,
+        [MotorDevice.getType()]: MotorDevice,
+        [LedDevice.getType()]: LedDevice
     }
 
     let ws = null;
