@@ -1,34 +1,43 @@
-/**
- * This class represents one device (motor or sensor). 
- */
-window.onerror = (message, source, lineno, colno, error) => {
-    console.log("error", message, source, lineno, colno, error);
-    document.getElementById("error-log").innerHTML += `<p>message: ${message}, source: ${source}, lineno: ${lineno}, colno: ${colno}, error: ${error}</p>`;
-}
 
+
+// ========================
+// DEVICES
+
+/**
+ * This class represents one device (a single motor, sensor or LED).
+ */
 class Device {
-    static getType() {
-        return null;
+    /**
+     * @returns {string} The type of this device. This method is overridden by its subclasses.
+     */
+    static getDeviceType() {
+        throw new Error("This method should be overridden");
     }
 
     /**
-     * @param {WebSocket} ws WebSocket to send changed values to 
-     * @param {string} deviceType "motor" or "sensor"
-     * @param {string} port port name as it is used internally, e.g. "ev3-ports:in1"
-     * @param {string} portName human-readable port name, e.g. "1"
-     * @param {{string: AttributeSetter}} attributeSetters Maps attribute names to AttributeSetter instances
-     * @param {{string: AttributeSender}} attributeSenders Maps attribute names to AttributeSender instances
+     * @param {Function} funcSendToServer - Function for sending new values to the server
+     * @param {string} port - Port name as it is used internally by ev3dev, e.g. "ev3-ports:in1"
+     * @param {string} portName - Human-readable port name, e.g. "1"
      */
-    constructor(ws, deviceType, port, portName, attributeSetters, attributeSenders) {
-        this.ws = ws;
-        this.deviceType = deviceType;
+    constructor(funcSendToServer, port, portName) {
+        this.funcSendToServer = funcSendToServer;
         this.port = port;
         this.portName = portName;
-        this.attributeSetters = attributeSetters;
-        this.attributeSenders = attributeSenders;
-        this.attributeValues = {};
+
+        /** @type {Object.<string, AttributeSetter>} */
+        this.attributeSetters = {};  // Maps attribute names to AttributeSetter instances
+
+        /** @type {Object.<string, AttributeSender>} */
+        this.attributeSenders = {};  // Maps attribute names to AttributeSender instances
+
+        /** @type {Object.<string, any>} */
+        this.attributeValues = {};  // Maps attribute names to the current value
     }
 
+    /**
+     * This method is called whenever the website receives the information from the server that the device has been disconnected.
+     * The method resets all attribute values.
+     */
     onDeviceDisconnected() {
         this.attributeValues = {};
         for (let setter of Object.values(this.attributeSetters)) {
@@ -41,8 +50,8 @@ class Device {
     }
 
     /**
-     * Update attribute values.
-     * @param {{string: string}} values Maps attribute names to new values
+     * Update attribute values of this device. This method is called when new values are received from the server.
+     * @param {Object.<string, string>} values - Maps attribute names to new values
      */
     updateValues(values) {
         for (let [attrName, attrValue] of Object.entries(values)) {
@@ -60,251 +69,13 @@ class Device {
     }
 
     /**
-     * This method is called by {@link AttributeSender}s when an attribute's value has been changed and should be sent to the server.
-     * @param {string} attrName attribute name
-     * @param {string} newValue new value for attribute
+     * This method is called by {@link AttributeSender}s when a value of an attribute has been changed and should be sent to the server.
+     * @param {string} attrName - Attribute name
+     * @param {string} newValue - New value for the attribute
      */
     onUpdateValue(attrName, newValue) {
         this.attributeValues[attrName] = newValue;
-        this.ws.send(JSON.stringify({ type: this.deviceType, port: this.port, attributes: { [attrName]: newValue } }));
-    }
-}
-
-
-/**
- * Used to set an attribute to the value sent by the server.
- */
-class AttributeSetter {
-    /**
-     * @param {(HTMLElement|HTMLInputElement|HTMLSelectElement)} elem
-     */
-    constructor(device, elem) {
-        this.device = device;
-        this.elem = elem;
-        this.set(null);
-    }
-
-    /**
-     * Set the attribute's value to {@link value}. 
-     * @param {string} value new value
-     * @returns {string} the value that should be stored inside this.device.attributeValues
-     */
-    set(value) { 
-        return value;
-    }
-
-    setDisabled(disabled) {
-        this.elem.disabled = disabled;
-    }
-}
-
-class InputAttributeSetter extends AttributeSetter {
-    set(value) {
-        if (value != null) {
-            this.elem.value = value;
-        } else {
-            this.elem.value = this.elem.getAttribute("initValue");
-        }
-        return super.set(value);
-    }
-}
-class PredefinedSelectAttributeSetter extends AttributeSetter {
-    set(value) {
-        if (value != null) {
-            for (let i = 0; i < this.elem.options.length; i++) {
-                if (this.elem.options[i].text === value) {
-                    this.elem.selectedIndex = i;
-                    break;
-                }
-            }
-        } else {
-            this.elem.selectedIndex = 0;
-        }
-        return super.set(value);
-    }
-}
-class SelectAttributeSetter extends AttributeSetter {
-    set(value) {
-        if (typeof value === "string") {
-            // only a string (which is the selected option's text) is sent by the server if another client changed the value
-            for (let i = 0; i < this.elem.options.length; i++) {
-                if (this.elem.options[i].text === value) {
-                    this.elem.selectedIndex = i;
-                    break;
-                }
-            }
-            return;
-        } 
-        while (this.elem.options.length > 0)
-            this.elem.remove(0);
-        if (value != null) {
-            let values;
-            let selected;
-            if (Array.isArray(value)) {
-                // this is for selects where option is not saved (e.g. commands. They can only be sent, but are not stored - in contrast to modes)
-                values = value;
-                selected = null;
-            } else {
-                values = value["values"];
-                selected = value["selected"];
-            }
-            for (let i = 0; i < values.length; i++) {
-                const option = document.createElement("option");
-                option.text = values[i];
-                this.elem.appendChild(option);
-                if (values[i] === selected) {
-                    this.elem.selectedIndex = i;
-                }
-            }
-            return selected;
-        }
-        return super.set(value);
-    }
-}
-class DriverNameAttributeSetter extends AttributeSetter {
-    set(value) {
-        if (value != null) {
-            // translate device name into a more human-readable form, for some sensors and motors
-            const translated = {
-                "lego-ev3-us": "EV3 Ultrasonic Sensor",
-                "lego-ev3-gyro": "EV3 Gyro Sensor",
-                "lego-ev3-color": "EV3 Color Sensor",
-                "lego-ev3-touch": "EV3 Touch Sensor",
-                "lego-ev3-ir": "EV3 Infrared Sensor",
-
-                "lego-ev3-m-motor": "EV3 Medium Servo Motor",
-                "lego-ev3-l-motor": "EV3 Large Servo Motor",
-
-                "lego-nxt-temp": "NXT Temperature Sensor",
-                "lego-nxt-light": "NXT Light Sensor",
-                "lego-nxt-sound": "NXT Sound Sensor",
-                "lego-nxt-us": "NXT Ultrasonic Sensor"
-            }[value] || value;
-            this.elem.textContent = translated + " (" + this.device.portName + ")";
-        } else {
-            this.elem.textContent = "Port " + this.device.portName;
-        }
-        return super.set(value);
-    }
-}
-class MotorPositionAttributeSetter extends AttributeSetter {
-    set(value) {
-        if (value != null) {
-            this.elem.textContent = value;
-        } else {
-            this.elem.textContent = "<None>";
-        }
-        return super.set(value);
-    }
-}
-class SensorValuesAttributeSetter extends AttributeSetter {
-    set(value) {
-        if (value != null) {
-            let translated = value;
-            try {
-                // translate values of some sensors into a more readable form
-                switch (this.device.attributeValues["driver_name"]) {
-                    case "lego-ev3-color":
-                        if (this.device.attributeValues["mode"] === "COL-COLOR") {
-                            translated = {
-                                "0": '<span class="circle"></span>No Color (0)',
-                                "1": '<span class="circle black-circle"></span>Black (1)',
-                                "2": '<span class="circle blue-circle"></span>Blue (2)',
-                                "3": '<span class="circle green-circle"></span>Green (3)',
-                                "4": '<span class="circle yellow-circle"></span>Yellow (4)',
-                                "5": '<span class="circle red-circle"></span>Red (5)',
-                                "6": '<span class="circle white-circle-with-border"></span>White (6)',
-                                "7": '<span class="circle brown-circle"></span>Brown (7)'
-                            }[value] || value;
-                        }
-                        break;
-                    case "lego-ev3-touch":
-                        translated = {
-                            "0": "Released (0)",
-                            "1": "Pressed (1)"
-                        }[value] || value;
-                        break;
-                    case "lego-ev3-ir":
-                        if (this.device.attributeValues["mode"] === "IR-REMOVE") {
-                            const values = value.split(' ');
-                        }
-                }
-            } catch (e) {
-                console.error(e);
-            }
-            
-            this.elem.innerHTML = translated;
-        } else {
-            this.elem.textContent = "<None>";
-        }
-        return super.set(value);
-    }
-}
-
-
-/**
- * Used to send an attribute to the server
- */
-class AttributeSender {
-    constructor(device, name, inputElem) {
-        this.device = device;
-        this.name = name;
-        this.inputElem = inputElem;
-    }
-
-    getValue() { }
-
-    setDisabled(disabled) {
-        this.inputElem.disabled = disabled;
-    }
-}
-
-class NormalAttributeSender extends AttributeSender {
-    constructor(device, name, inputElem, event) {
-        super(device, name, inputElem);
-        this.addEventListener(event);
-    }
-    addEventListener(event) {
-        this.inputElem.addEventListener(event, () => this.device.onUpdateValue(this.name, this.getValue()));
-    }
-}
-class InputAttributeSender extends NormalAttributeSender {
-    constructor(device, name, inputElem) {
-        super(device, name, inputElem, "input");
-    }
-    getValue() {
-        return this.inputElem.value;
-    }
-}
-class SelectAttributeSender extends NormalAttributeSender {
-    constructor(device, name, inputElem) {
-        super(device, name, inputElem, "change");
-    }
-    getValue() {
-        return this.inputElem.options[this.inputElem.selectedIndex].text;
-    }
-}
-
-class AttributeSenderOnButton extends AttributeSender {
-    constructor(device, name, inputElem, buttonElem) {
-        super(device, name, inputElem);
-        this.buttonElem = buttonElem;
-        this.buttonElem.addEventListener("click", () => this.device.onUpdateValue(this.name, this.getValue()));
-    }
-
-    setDisabled(disabled) {
-        super.setDisabled(disabled);
-        this.buttonElem.disabled = disabled;
-    }
-}
-class InputAttributeSenderOnButton extends AttributeSenderOnButton {
-    getValue() {
-        return this.inputElem.value;
-    }
-}
-class SelectAttributeSenderOnButton extends AttributeSenderOnButton {
-    getValue() {
-        return this.inputElem.options[this.inputElem.selectedIndex].text;
+        this.funcSendToServer(JSON.stringify({ type: this.constructor.getDeviceType(), port: this.port, attributes: { [attrName]: newValue } }));
     }
 }
 
@@ -312,18 +83,18 @@ class SelectAttributeSenderOnButton extends AttributeSenderOnButton {
  * Represents one motor port
  */
 class MotorDevice extends Device {
-    static getType() {
+    static getDeviceType() {
         return "motor";
     }
 
     /**
-     * @param {WebSocket} ws see {@link Device}
-     * @param {string} port see {@link Device}
-     * @param {string} portName see {@link Device}
-     * @param {HTMLElement} card The HTMLElement that represents this port
+     * @param {Function} funcSendToServer - See {@link Device#constructor}
+     * @param {string} port - See {@link Device#constructor}
+     * @param {string} portName - See {@link Device#constructor}
+     * @param {HTMLElement} card - The {@link HTMLElement} that represents this motor
      */
-    constructor(ws, port, portName, card) {
-        super(ws, "motor", port, portName, {}, {});
+    constructor(funcSendToServer, port, portName, card) {
+        super(funcSendToServer, port, portName);
         this.attributeSetters = {
             "position": new MotorPositionAttributeSetter(this, card.getElementsByClassName("positionDisplay")[0]),
             "driver_name": new DriverNameAttributeSetter(this, card.getElementsByClassName("port")[0]),
@@ -356,18 +127,18 @@ class MotorDevice extends Device {
  * Represents one sensor port
  */
 class SensorDevice extends Device {
-    static getType() {
+    static getDeviceType() {
         return "sensor";
     }
 
     /**
-     * @param {WebSocket} ws see {@link Device}
-     * @param {string} port see {@link Device}
-     * @param {string} portName see {@link Device}
-     * @param {HTMLElement} card The HTMLElement that represents this port
+     * @param {Function} funcSendToServer - See {@link Device#constructor}
+     * @param {string} port - See {@link Device#constructor}
+     * @param {string} portName - See {@link Device#constructor}
+     * @param {HTMLElement} card - The {@link HTMLElement} that represents this sensor
      */
-    constructor(ws, port, portName, card) {
-        super(ws, "sensor", port, portName, {}, {});
+    constructor(funcSendToServer, port, portName, card) {
+        super(funcSendToServer, port, portName);
         this.attributeSetters = {
             "values": new SensorValuesAttributeSetter(this, card.getElementsByClassName("values")[0]),
             "driver_name": new DriverNameAttributeSetter(this, card.getElementsByClassName("port")[0]),
@@ -382,15 +153,21 @@ class SensorDevice extends Device {
 }
 
 /**
- * Represents one led
+ * Represents one LED
  */
 class LedDevice extends Device {
-    static getType() {
+    static getDeviceType() {
         return "led";
     }
 
-    constructor(ws, port, portName, card) {
-        super(ws, "led", port, portName, {}, {});
+    /**
+     * @param {Function} funcSendToServer - See {@link Device#constructor}
+     * @param {string} port - See {@link Device#constructor}
+     * @param {string} portName - See {@link Device#constructor}
+     * @param {HTMLElement} card - The {@link HTMLElement} that represents this LED
+     */
+    constructor(funcSendToServer, port, portName, card) {
+        super(funcSendToServer, port, portName);
         card.getElementsByClassName("port")[0].textContent = portName.toUpperCase();
         this.attributeSetters = {
             "green": new InputAttributeSetter(this, card.getElementsByClassName("greenLed")[0]),
@@ -401,93 +178,458 @@ class LedDevice extends Device {
             "red": new InputAttributeSender(this, "red", card.getElementsByClassName("redLed")[0])
         }
     }
+
     onUpdateValue(attrName, newValue) {
         this.attributeValues[attrName] = newValue;
-        this.ws.send(JSON.stringify({ type: this.deviceType, port: this.port, attributes: { [attrName]: newValue } }));
+        this.funcSendToServer(JSON.stringify({ type: this.constructor.getDeviceType(), port: this.port, attributes: { [attrName]: newValue } }),
+            true);  // second parameter 'true' makes the function check whether another value was sent to the server a short time ago. If it was, the new value is not sent so that the server doesn't get too many requests.
+    }
+}
+
+
+
+// ========================
+// ATTRIBUTE SETTERS
+
+/**
+ * Instances of this class are responsible for setting a value of a single attribute.
+ */
+class AttributeSetter {
+    /**
+     * @param {Device} device - The device this attribute belongs to.
+     * @param {Element} elem - HTML input element on which the value is set.
+     */
+    constructor(device, elem) {
+        this.device = device;
+        this.elem = elem;
+        this.set(null);
+    }
+
+    /**
+     * Set the attribute's value to {@link value}. 
+     * @param {(string|null)} value - New value
+     * @returns {string} The value that should be stored inside {@link this.device.attributeValues}
+     */
+    set(value) { 
+        return value;
+    }
+
+    setDisabled(disabled) {
+        this.elem.disabled = disabled;
+    }
+}
+
+/**
+ * Used for setting the value of an <input> tag.
+ */
+class InputAttributeSetter extends AttributeSetter {
+    set(value) {
+        if (value != null) {
+            this.elem.value = value;
+        } else {
+            this.elem.value = this.elem.getAttribute("initValue");
+        }
+        return super.set(value);
+    }
+}
+
+/**
+ * Used for setting the value of a <select> tag.
+ * Values for this type of <select> tag are predefined and are not sent by the server.
+ * Instance of this class are used for setting motor polarity, because polarity always has only two possible values
+ * ("normal" and "inversed"). For other <select> tags, {@link SelectAttributeSetter} is used.
+ */
+class PredefinedSelectAttributeSetter extends AttributeSetter {
+    set(value) {
+        if (value != null) {
+            for (let i = 0; i < this.elem.options.length; i++) {
+                if (this.elem.options[i].text === value) {
+                    this.elem.selectedIndex = i;
+                    break;
+                }
+            }
+        } else {
+            this.elem.selectedIndex = 0;
+        }
+        return super.set(value);
+    }
+}
+
+/**
+ * Used for setting the value of a <select> tag.
+ * Values are sent by the server.
+ * This Setter is used for e.g. sensor modes and commands.
+ */
+class SelectAttributeSetter extends AttributeSetter {
+    /**
+     * The value parameter can have three types:
+     *   * A string: In this case, the server sent only the name of the option that should be set as active
+     *   * An array of strings: In this case, the server sent a list of possible values, but no currently selected value.
+     *                          This is used for commands. There is no "currently active command", but instead, there is
+     *                          a list of possible commands from which the user can choose one.
+     *   * An Object containing values and a selected value: In this case, the server sent a list of possible options
+     *                                                       and the name of the currently active option. This is used
+     *                                                       for e.g. sensor modes.
+     * @param value {(string|Array<string>|{values: Array<string>, selected: string})} - new values
+     * @returns {string} See {@link AttributeSetter#set}
+     */
+    set(value) {
+        if (typeof value === "string") {
+            // only a string (which is the selected option) is sent by the server
+            for (let i = 0; i < this.elem.options.length; i++) {
+                if (this.elem.options[i].text === value) {
+                    this.elem.selectedIndex = i;
+                    break;
+                }
+            }
+            return value;
+        } 
+        while (this.elem.options.length > 0)
+            this.elem.remove(0);
+        if (value != null) {
+            let values;
+            let selected;
+            if (Array.isArray(value)) {
+                // this is for selects where option is not saved (e.g. commands. They can only be sent, but are not stored - in contrast to modes)
+                values = value;
+                selected = null;
+            } else {
+                // the server sent an object containing both values and the selected option
+                values = value["values"];
+                selected = value["selected"];
+            }
+            for (let i = 0; i < values.length; i++) {
+                const option = document.createElement("option");
+                option.text = values[i];
+                this.elem.appendChild(option);
+                if (values[i] === selected) {
+                    this.elem.selectedIndex = i;
+                }
+            }
+            return selected;
+        }
+        return super.set(value);
+    }
+}
+
+/**
+ * Used for setting the name of a device (the port).
+ */
+class DriverNameAttributeSetter extends AttributeSetter {
+    set(value) {
+        if (value != null) {
+            // for some sensors and motors, translate the device name into something more human-readable
+            const translated = {
+                "lego-ev3-us": "EV3 Ultrasonic Sensor",
+                "lego-ev3-gyro": "EV3 Gyro Sensor",
+                "lego-ev3-color": "EV3 Color Sensor",
+                "lego-ev3-touch": "EV3 Touch Sensor",
+                "lego-ev3-ir": "EV3 Infrared Sensor",
+
+                "lego-ev3-m-motor": "EV3 Medium Servo Motor",
+                "lego-ev3-l-motor": "EV3 Large Servo Motor",
+
+                "lego-nxt-temp": "NXT Temperature Sensor",
+                "lego-nxt-light": "NXT Light Sensor",
+                "lego-nxt-sound": "NXT Sound Sensor",
+                "lego-nxt-us": "NXT Ultrasonic Sensor"
+            }[value] || value;
+            this.elem.textContent = translated + " (" + this.device.portName + ")";
+        } else {
+            this.elem.textContent = "Port " + this.device.portName;
+        }
+        return super.set(value);
+    }
+}
+
+/**
+ * Used for setting the motor position.
+ */
+class MotorPositionAttributeSetter extends AttributeSetter {
+    set(value) {
+        if (value != null) {
+            this.elem.textContent = value;
+        } else {
+            this.elem.textContent = "<None>";
+        }
+        return super.set(value);
+    }
+}
+
+/**
+ * Used for setting a sensor value.
+ */
+class SensorValuesAttributeSetter extends AttributeSetter {
+    set(value) {
+        if (value != null) {
+            let translated = value;
+            try {
+                // translate values of some sensors into something more human-readable
+                switch (this.device.attributeValues["driver_name"]) {
+                    case "lego-ev3-color":
+                        if (this.device.attributeValues["mode"] === "COL-COLOR") {
+                            translated = {
+                                "0": '<span class="circle"></span>No Color (0)',
+                                "1": '<span class="circle black-circle"></span>Black (1)',
+                                "2": '<span class="circle blue-circle"></span>Blue (2)',
+                                "3": '<span class="circle green-circle"></span>Green (3)',
+                                "4": '<span class="circle yellow-circle"></span>Yellow (4)',
+                                "5": '<span class="circle red-circle"></span>Red (5)',
+                                "6": '<span class="circle white-circle-with-border"></span>White (6)',
+                                "7": '<span class="circle brown-circle"></span>Brown (7)'
+                            }[value] || value;
+                        }
+                        break;
+                    case "lego-ev3-touch":
+                        translated = {
+                            "0": "Released (0)",
+                            "1": "Pressed (1)"
+                        }[value] || value;
+                        break;
+                    /*case "lego-ev3-ir":
+                        if (this.device.attributeValues["mode"] === "IR-REMOVE") {
+                            const values = value.split(' ');
+
+                        }
+                        break;*/ // TODO
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            
+            this.elem.innerHTML = translated;
+        } else {
+            this.elem.textContent = "<None>";
+        }
+        return super.set(value);
+    }
+}
+
+
+
+// ========================
+// ATTRIBUTE SETTERS
+
+/**
+ * Instances of this class are responsible for setting a single attribute value to the server, once it has been changed by the user.
+ */
+class AttributeSender {
+    /**
+     * @param device - The device this attribute belongs to.
+     * @param name - The name of this attribute.
+     * @param inputElem - HTML input element which represents this attribute.
+     */
+    constructor(device, name, inputElem) {
+        this.device = device;
+        this.name = name;
+        this.inputElem = inputElem;
+    }
+
+    /**
+     * Get the current attribute value set by the user.
+     */
+    getValue() {
+        throw new Error("This method should be overridden");
+    }
+
+    setDisabled(disabled) {
+        this.inputElem.disabled = disabled;
+    }
+}
+
+/**
+ * AttributeSenders that inherit from this class send the new value immediately to the server, in contrast to
+ * {@link AttributeSenderOnButton}.
+ */
+class NormalAttributeSender extends AttributeSender {
+    /**
+     * @param device - See {@link AttributeSender#constructor}
+     * @param name - See {@link AttributeSender#constructor}
+     * @param inputElem - See {@link AttributeSender#constructor}
+     * @param event - Name of the event that is fired on {@code inputElement} once the value has been changed.
+     */
+    constructor(device, name, inputElem, event) {
+        super(device, name, inputElem);
+        this.inputElem.addEventListener(event, () => this.device.onUpdateValue(this.name, this.getValue()));
+    }
+}
+
+/**
+ * Used for sending the value of an <input> tag.
+ */
+class InputAttributeSender extends NormalAttributeSender {
+    constructor(device, name, inputElem) {
+        super(device, name, inputElem, "input");
+    }
+
+    getValue() {
+        return this.inputElem.value;
+    }
+}
+
+/**
+ * Used for sending the value of an <select> tag.
+ */
+class SelectAttributeSender extends NormalAttributeSender {
+    constructor(device, name, inputElem) {
+        super(device, name, inputElem, "change");
+    }
+
+    getValue() {
+        return this.inputElem.options[this.inputElem.selectedIndex].text;
+    }
+}
+
+/**
+ * AttributeSenders that inherit from this class send the new value to the server once the user has clicked on a button,
+ * in contrast to {@link NormalAttributeSender}.
+ */
+class AttributeSenderOnButton extends AttributeSender {
+    constructor(device, name, inputElem, buttonElem) {
+        super(device, name, inputElem);
+        this.buttonElem = buttonElem;
+        this.buttonElem.addEventListener("click", () => this.device.onUpdateValue(this.name, this.getValue()));
+    }
+
+    setDisabled(disabled) {
+        super.setDisabled(disabled);
+        this.buttonElem.disabled = disabled;
+    }
+}
+
+/**
+ * Used for sending the value of an <input> tag once the user has clicked on a button.
+ */
+class InputAttributeSenderOnButton extends AttributeSenderOnButton {
+    getValue() {
+        return this.inputElem.value;
+    }
+}
+
+/**
+ * Used for sending the value of an <input> tag once the user has clicked on a button.
+ */
+class SelectAttributeSenderOnButton extends AttributeSenderOnButton {
+    getValue() {
+        return this.inputElem.options[this.inputElem.selectedIndex].text;
     }
 }
 
 
 window.onload = () => {
+    // ====================
+    // CONSTANTS
     const TEMPLATES = {
-        [SensorDevice.getType()]: document.getElementById("sensor-template"),
-        [MotorDevice.getType()]: document.getElementById("motor-template"),
-        [LedDevice.getType()]: document.getElementById("led-template")
+        [SensorDevice.getDeviceType()]: document.getElementById("sensor-template"),
+        [MotorDevice.getDeviceType()]: document.getElementById("motor-template"),
+        [LedDevice.getDeviceType()]: document.getElementById("led-template")
     }
     const CONTAINERS = {
-        [SensorDevice.getType()]: document.getElementById("sensors-container"),
-        [MotorDevice.getType()]: document.getElementById("motors-container"),
-        [LedDevice.getType()]: document.getElementById("leds-container")
+        [SensorDevice.getDeviceType()]: document.getElementById("sensors-container"),
+        [MotorDevice.getDeviceType()]: document.getElementById("motors-container"),
+        [LedDevice.getDeviceType()]: document.getElementById("leds-container")
     }
 
-    const alertWebsocketClosed = document.getElementById("alert-websocket-closed");
-    
+    const ALERT_WEBSOCKET_CLOSED = document.getElementById("alert-websocket-closed");
+
     const PORTS = [
-        [SensorDevice.getType(), "ev3-ports:in1", "1"],
-        [SensorDevice.getType(), "ev3-ports:in2", "2"],
-        [SensorDevice.getType(), "ev3-ports:in3", "3"],
-        [SensorDevice.getType(), "ev3-ports:in4", "4"],
+        [SensorDevice.getDeviceType(), "ev3-ports:in1", "1"],
+        [SensorDevice.getDeviceType(), "ev3-ports:in2", "2"],
+        [SensorDevice.getDeviceType(), "ev3-ports:in3", "3"],
+        [SensorDevice.getDeviceType(), "ev3-ports:in4", "4"],
 
-        [MotorDevice.getType(), "ev3-ports:outA", "A"],
-        [MotorDevice.getType(), "ev3-ports:outB", "B"],
-        [MotorDevice.getType(), "ev3-ports:outC", "C"],
-        [MotorDevice.getType(), "ev3-ports:outD", "D"],
+        [MotorDevice.getDeviceType(), "ev3-ports:outA", "A"],
+        [MotorDevice.getDeviceType(), "ev3-ports:outB", "B"],
+        [MotorDevice.getDeviceType(), "ev3-ports:outC", "C"],
+        [MotorDevice.getDeviceType(), "ev3-ports:outD", "D"],
 
-        [LedDevice.getType(), "led:LEFT", "left"],
-        [LedDevice.getType(), "led:RIGHT", "right"]
+        [LedDevice.getDeviceType(), "led:LEFT", "left"],
+        [LedDevice.getDeviceType(), "led:RIGHT", "right"]
     ];
     const DEVICES = {
-        [SensorDevice.getType()]: SensorDevice,
-        [MotorDevice.getType()]: MotorDevice,
-        [LedDevice.getType()]: LedDevice
+        [SensorDevice.getDeviceType()]: SensorDevice,
+        [MotorDevice.getDeviceType()]: MotorDevice,
+        [LedDevice.getDeviceType()]: LedDevice
     }
 
+    /** @type {Object.<string, Device>} Maps port names to devices.  */
+    const devices = {};
+
+
+    // ====================
+    // WEBSOCKET CONNECTION
+    /** @type {(WebSocket|null)} */
     let ws = null;
 
     try {
         ws = new WebSocket("ws://" + window.location.hostname + ":8000/ev3-info");
     } catch (error) {
         console.error(error);
-        alertWebsocketClosed.hidden = false;
+        ALERT_WEBSOCKET_CLOSED.hidden = false;
     }
-    
-    /** @type {string: Device} Maps port names to devices */
-    const devices = {};
-    
+
     if (ws != null) {
-        ws.onopen = event => console.log("websocket opened", event);
-        ws.onclose = event => {
-            console.log("websocket closed", event);
-            alertWebsocketClosed.hidden = false;
-        }
-        ws.onmessage = event => {
+        ws.addEventListener("open", event => console.log("websocket opened", event));
+        ws.addEventListener("close", event => {
+            console.log("WebSocket closed", event);
+            ALERT_WEBSOCKET_CLOSED.hidden = false;
+        });
+        ws.addEventListener("message", event => {
             const data = JSON.parse(event.data);
+            // server sends data in this format:
+            // {
+            //  "disconnected_devices": [<list of ports whose devices have been disconnected>],
+            //  "<port1>": {<new values for device on port 'port1'>},
+            //  "<port2>": {<new values for device on port 'port2'>},
+            //  ...
+            // }
             for (let [port, deviceData] of Object.entries(data)) {
                 if (port === "disconnected_devices") {
                     for (let disconnectedPort of deviceData) {
-                        console.log("device disconnected", disconnectedPort);
+                        console.log("Device disconnected", disconnectedPort);
                         devices[disconnectedPort].onDeviceDisconnected();
                     }
                 } else {
                     devices[port].updateValues(deviceData);
                 }
             }
-        };
+        });
     }
 
-    // DEVICES
+    // sending messages to server
+    let nextSendToServerTime = 0;
+    /**
+     * @param {String} message - Message to send to the server.
+     * @param {boolean} checkTime - If {@code true}, don't send value if a value has been sent a short time ago.
+     */
+    function sendToServer(message, checkTime = false) {
+        if (checkTime) {
+            // check that no value has been sent to server a short time ago
+            const currentTime = new Date().getTime();
+            if (!(currentTime >= nextSendToServerTime))
+                // do not send value to server
+                return;
+            nextSendToServerTime = currentTime + 200;  // send a value to server at most every 200 ms
+        }
+        ws.send(message);
+    }
+
+
+    // ====================
+    // INITIALIZATION OF DEVICES
     for (let [deviceType, port, portName] of PORTS) {
         const newCard = TEMPLATES[deviceType].content.firstElementChild.cloneNode(true);
-        devices[port] = new DEVICES[deviceType](ws, port, portName, newCard);
+        devices[port] = new DEVICES[deviceType](sendToServer, port, portName, newCard);
         CONTAINERS[deviceType].appendChild(newCard);
     }
 
-    
-    // STEERING
+
+    // ====================
+    // STEERING WITH JOYSTICK
     const circle = document.getElementById("large-steering-circle");
     const joystick = document.getElementById("joystick-steering-circle");
     let circleRadius = 250;  // circle radius to calculate joystick position
-    let circleRadiusSmaller = 250;  // circle radius the position is clamped to
+    let circleRadiusSmaller = 250;  // circle radius the position of the joystick is clamped to
 
     let isDragging = false;
     let currentX = 0;
@@ -567,8 +709,6 @@ window.onload = () => {
         joystick.style.width = radius + "px";
         joystick.style.height = radius + "px";
         joystick.style.marginTop = "calc(50% - " + radius / 2 + "px)";
-        // make joystick stay inside circle
-        setJoystickPosition();
     }
     resize();
     window.addEventListener("resize", resize);

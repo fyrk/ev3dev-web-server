@@ -12,12 +12,11 @@ import traceback
 from threading import Thread, Lock
 import tornado.web
 import tornado.websocket
-import tornado.httpserver
+import tornado.ioloop
 from tornado.options import define, options
 from ev3dev2.motor import list_motors, Motor, MoveJoystick, OUTPUT_B, OUTPUT_C
 from ev3dev2.sensor import list_sensors, Sensor
 from ev3dev2.led import Leds
-from ev3dev2 import Device
 t2 = time.perf_counter()
 print("Imported in", t2-t1)
 
@@ -28,6 +27,7 @@ LEDS.all_off()
 LEDS.reset()
 
 move_joystick = MoveJoystick(OUTPUT_B, OUTPUT_C, motor_class=Motor)
+
 
 class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     websockets = set()
@@ -77,7 +77,7 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
             elif type_ == "rc-joystick:set-ports":
                 move_joystick = MoveJoystick(data["port-left"], data["port-right"], motor_class=Motor)
             else:
-                raise ValueError("Unknown message type '" + device + "'")
+                raise ValueError("Unknown message type '" + type_ + "'")
         except Exception:
             traceback.print_exc()
     
@@ -195,7 +195,6 @@ def get_info(old_sensor_addresses, old_motor_addresses, all_info=False):
 
 
 def send_info():
-    # always send all info on newly connected devices, but normally only send changing values (sensor.values and motor.position) to client
     old_sensor_addresses = set()
     old_motor_addresses = set()
     while True:
@@ -210,8 +209,8 @@ def send_info():
 
 
 class StaticFiles(tornado.web.StaticFileHandler):
-     def set_extra_headers(self, path):
-        self.set_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+    def set_extra_headers(self, path):
+        self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 
 
 if __name__ == "__main__":
