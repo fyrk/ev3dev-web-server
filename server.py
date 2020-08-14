@@ -10,23 +10,27 @@ import json
 import time
 import traceback
 from threading import Thread, Lock
+from queue import PriorityQueue
 import tornado.web
 import tornado.websocket
 import tornado.ioloop
-from tornado.options import define, options
+import tornado.options
 from ev3dev2.motor import list_motors, Motor, MoveJoystick, OUTPUT_B, OUTPUT_C
 from ev3dev2.sensor import list_sensors, Sensor
 from ev3dev2.led import Leds
 t2 = time.perf_counter()
 print("Imported in", t2-t1)
 
-define("port", default=8000, help="run on the given port", type=int)
 
 LEDS = Leds()
 LEDS.all_off()
 LEDS.reset()
 
-move_joystick = MoveJoystick(OUTPUT_B, OUTPUT_C, motor_class=Motor)
+try:
+    move_joystick = MoveJoystick(OUTPUT_B, OUTPUT_C, motor_class=Motor)
+except Exception:
+    traceback.print_exc()
+    move_joystick = None
 
 
 class EV3InfoHandler(tornado.websocket.WebSocketHandler):
@@ -37,49 +41,56 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
         with EV3InfoHandler.websockets_lock:
             EV3InfoHandler.websockets.add(self)
         self.write_message(get_info(set(), set(), True)[0])
+        self.write_message("next")  # inform client that it is allowed to send a new message
     
     def on_close(self):
         with EV3InfoHandler.websockets_lock:
             EV3InfoHandler.websockets.remove(self)
 
-    def on_message(self, message):
+    def on_message(self, messages):
         global move_joystick
         try:
-            print("got message", message)
-            data = json.loads(message)
-            type_ = data["type"]
-            if type_ == "sensor":
-                port = data["port"]
-                attributes = data["attributes"]
-                device = Sensor()
-                for name, value in attributes.items():
-                    setattr(device, name, value)
-                # send changes to other clients
-                EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
-            elif type_ == "motor":
-                port = data["port"]
-                attributes = data["attributes"]
-                device = Motor(port)
-                for name, value in attributes.items():
-                    setattr(device, name, value)
-                # send changes to other clients
-                EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
-            elif type_ == "led":
-                port = data["port"]
-                attributes = data["attributes"]
-                led_group = port.split(":")[1].lower()
-                for color_name, brightness in attributes.items():
-                    LEDS.leds[color_name + "_" + led_group].brightness_pct = float(brightness)
-                # send changes to other clients
-                EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
-            elif type_ == "rc-joystick:set-pos":
-                move_joystick.on(data["x"], data["y"], 1)
-            elif type_ == "rc-joystick:set-ports":
-                move_joystick = MoveJoystick(data["port-left"], data["port-right"], motor_class=Motor)
-            else:
-                raise ValueError("Unknown message type '" + type_ + "'")
+            print("got messages", messages)
+            for message in json.loads(messages):
+                type_ = message["type"]
+                if type_ == "sensor":
+                    port = message["port"]
+                    attributes = message["attributes"]
+                    device = Sensor()
+                    for name, value in attributes.items():
+                        setattr(device, name, value)
+                    # send changes to other clients
+                    EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
+                elif type_ == "motor":
+                    port = message["port"]
+                    attributes = message["attributes"]
+                    device = Motor(port)
+                    for name, value in attributes.items():
+                        setattr(device, name, value)
+                    # send changes to other clients
+                    EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
+                elif type_ == "led":
+                    port = message["port"]
+                    attributes = message["attributes"]
+                    led_group = port.split(":")[1].lower()
+                    for color_name, brightness in attributes.items():
+                        LEDS.leds[color_name + "_" + led_group].brightness_pct = float(brightness)
+                    # send changes to other clients
+                    EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
+                elif type_ == "rc-joystick:set-pos":
+                    if move_joystick is not None:
+                        move_joystick.on(message["x"], message["y"], 1)
+                elif type_ == "rc-joystick:set-ports":
+                    try:
+                        move_joystick = MoveJoystick(message["port-left"], message["port-right"], motor_class=Motor)
+                    except Exception:
+                        traceback.print_exc()
+                        move_joystick = None
+                else:
+                    raise ValueError("Unknown message type '" + type_ + "'")
         except Exception:
             traceback.print_exc()
+        self.send_to_all("next")
     
     @classmethod
     def send_to_all(cls, message, exclude_websockets=None):
@@ -95,7 +106,7 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
 """
 Returns a string containing a JSON object which describes the current motor/sensor values in the following format:
     {
-        "<address (e.g. "ev3-ports:in1")": {
+        "<address (e.g. "ev3-ports:in1")>": {
             // for both sensors and motors:
             "driver_name": "<driver name>",
             "command": [<list of possible commands>],
@@ -214,6 +225,7 @@ class StaticFiles(tornado.web.StaticFileHandler):
 
 
 if __name__ == "__main__":
+    tornado.options.define("port", default=8000, help="run on the given port", type=int)
     tornado.options.parse_command_line()
     static_files = os.path.join(os.path.dirname(__file__), "website")
     app = tornado.web.Application([
@@ -222,8 +234,8 @@ if __name__ == "__main__":
         ],
         static_path=os.path.join(os.path.dirname(__file__), "website")
     )
-    app.listen(options.port)
-    print("Serving on port", options.port)
+    app.listen(tornado.options.options.port)
+    print("Serving on port", tornado.options.options.port)
     ioloop = tornado.ioloop.IOLoop.current()
     Thread(target=ioloop.start).start()
     Thread(target=send_info).start()

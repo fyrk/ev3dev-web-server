@@ -75,7 +75,7 @@ class Device {
      */
     onUpdateValue(attrName, newValue) {
         this.attributeValues[attrName] = newValue;
-        this.funcSendToServer(JSON.stringify({ type: this.constructor.getDeviceType(), port: this.port, attributes: { [attrName]: newValue } }));
+        this.funcSendToServer({ type: this.constructor.getDeviceType(), port: this.port, attributes: { [attrName]: newValue } });
     }
 }
 
@@ -181,8 +181,8 @@ class LedDevice extends Device {
 
     onUpdateValue(attrName, newValue) {
         this.attributeValues[attrName] = newValue;
-        this.funcSendToServer(JSON.stringify({ type: this.constructor.getDeviceType(), port: this.port, attributes: { [attrName]: newValue } }),
-            true);  // second parameter 'true' makes the function check whether another value was sent to the server a short time ago. If it was, the new value is not sent so that the server doesn't get too many requests.
+        this.funcSendToServer({ type: this.constructor.getDeviceType(), port: this.port, attributes: { [attrName]: newValue } },
+            this.port);  // second parameter "this.port" specifies that if a new value is encountered, this overrides the old one. 
     }
 }
 
@@ -568,6 +568,12 @@ window.onload = () => {
         ALERT_WEBSOCKET_CLOSED.hidden = false;
     }
 
+    // contains all messages that should be sent to the server and that can not be "overridden" by newer events (e.g. sending a command cannot be overridden, but changing LED brightness can)
+    let nonOverridableWebSocketMessages = [];
+    // contains all messages that should be sent to the server and that can be "overridden" by newer events
+    let overridableWebSocketMessages = {};
+    let hasReceivedNext = false;
+
     if (ws != null) {
         ws.addEventListener("open", event => console.log("websocket opened", event));
         ws.addEventListener("close", event => {
@@ -575,43 +581,64 @@ window.onload = () => {
             ALERT_WEBSOCKET_CLOSED.hidden = false;
         });
         ws.addEventListener("message", event => {
-            const data = JSON.parse(event.data);
-            // server sends data in this format:
-            // {
-            //  "disconnected_devices": [<list of ports whose devices have been disconnected>],
-            //  "<port1>": {<new values for device on port 'port1'>},
-            //  "<port2>": {<new values for device on port 'port2'>},
-            //  ...
-            // }
-            for (let [port, deviceData] of Object.entries(data)) {
-                if (port === "disconnected_devices") {
-                    for (let disconnectedPort of deviceData) {
-                        console.log("Device disconnected", disconnectedPort);
-                        devices[disconnectedPort].onDeviceDisconnected();
-                    }
+            if (event.data === "next") {
+                hasReceivedNext = false;
+                // server sends "next" to tell client that client can now send updates because the server is finished processing updates
+                let messages = [];
+                messages.push(...nonOverridableWebSocketMessages);
+                messages.push(...Object.values(overridableWebSocketMessages));
+                nonOverridableWebSocketMessages = [];
+                overridableWebSocketMessages = {};
+                if (messages.length === 0) {
+                    // there are currently no messages to send
+                    hasReceivedNext = true;
                 } else {
-                    devices[port].updateValues(deviceData);
+                    ws.send(JSON.stringify(messages));
+                }
+            } else {
+                const data = JSON.parse(event.data);
+                // server sends data in this format:
+                // {
+                //  "disconnected_devices": [<list of ports whose devices have been disconnected>],
+                //  "<port1>": {<new values for device on port 'port1'>},
+                //  "<port2>": {<new values for device on port 'port2'>},
+                //  ...
+                // }
+                for (let [port, deviceData] of Object.entries(data)) {
+                    if (port === "disconnected_devices") {
+                        for (let disconnectedPort of deviceData) {
+                            console.log("Device disconnected", disconnectedPort);
+                            devices[disconnectedPort].onDeviceDisconnected();
+                        }
+                    } else {
+                        devices[port].updateValues(deviceData);
+                    }
                 }
             }
         });
     }
 
-    // sending messages to server
-    let nextSendToServerTime = 0;
     /**
-     * @param {String} message - Message to send to the server.
-     * @param {boolean} checkTime - If {@code true}, don't send value if a value has been sent a short time ago.
+     * @param {Object} message - Message to send to the server.
+     * @param {(String|null)} identification - If null, specifies that this message is non-overridable and should be sent to the server. 
+     *                                         If identification is specified, a previous message with the same identification is replaced by the new message and only the new message is sent to the server.
      */
-    function sendToServer(message, checkTime = false) {
-        if (checkTime) {
-            // check that no value has been sent to server a short time ago
-            const currentTime = new Date().getTime();
-            if (!(currentTime >= nextSendToServerTime))
-                // do not send value to server
-                return;
-            nextSendToServerTime = currentTime + 200;  // send a value to server at most every 200 ms
+    function sendToServer(message, identification = null) {
+        if (identification == null) {
+            nonOverridableWebSocketMessages.push(message);
+        } else {
+            overridableWebSocketMessages[identification] = message;
         }
-        ws.send(message);
+        if (hasReceivedNext) {
+            // client can send messages directly
+            hasReceivedNext = false;
+            let messages = [];
+            messages.push(...nonOverridableWebSocketMessages);
+            messages.push(...Object.values(overridableWebSocketMessages));
+            nonOverridableWebSocketMessages = [];
+            overridableWebSocketMessages = {};
+            ws.send(JSON.stringify(messages));
+        }
     }
 
 
@@ -697,7 +724,7 @@ window.onload = () => {
         if (counter > 20 && hasPosChanged) {
             counter = 0;
             hasPosChanged = false;
-            ws.send(JSON.stringify({ type: "rc-joystick:set-pos", x: currentX / circleRadius, y: -currentY / circleRadius }));
+            sendToServer({ type: "rc-joystick:set-pos", x: currentX / circleRadius, y: -currentY / circleRadius }, "rc-joystick:set-pos");
         }
     }, 10);
     
