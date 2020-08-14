@@ -182,7 +182,7 @@ class LedDevice extends Device {
     onUpdateValue(attrName, newValue) {
         this.attributeValues[attrName] = newValue;
         this.funcSendToServer({ type: this.constructor.getDeviceType(), port: this.port, attributes: { [attrName]: newValue } },
-            this.port);  // second parameter "this.port" specifies that if a new value is encountered, this overrides the old one. 
+            this.port + "-" + attrName);  // second parameter "this.port + "-" + attrName" specifies that if a new value with the same id is encountered, this overrides the old one. 
     }
 }
 
@@ -653,6 +653,9 @@ window.onload = () => {
 
     // ====================
     // STEERING WITH JOYSTICK
+    const joystickLeftPortInput = document.getElementById("joystick-left-port");
+    const joystickRightPortInput = document.getElementById("joystick-right-port");
+
     const circle = document.getElementById("large-steering-circle");
     const joystick = document.getElementById("joystick-steering-circle");
     let circleRadius = 250;  // circle radius to calculate joystick position
@@ -706,7 +709,7 @@ window.onload = () => {
     let counter = 0;
     setInterval(() => {
         if (!isDragging && (currentX !== 0 || currentY !== 0)) {
-            // move circle back to middle
+            // move circle back to center
             let distance = Math.sqrt(currentX * currentX + currentY * currentY);
             distance = distance / (distance - (circleRadius / 100));
             currentX = currentX / distance;
@@ -724,7 +727,8 @@ window.onload = () => {
         if (counter > 20 && hasPosChanged) {
             counter = 0;
             hasPosChanged = false;
-            sendToServer({ type: "rc-joystick:set-pos", x: currentX / circleRadius, y: -currentY / circleRadius }, "rc-joystick:set-pos");
+            sendToServer({ type: "rc-joystick", x: currentX / circleRadius, y: -currentY / circleRadius, leftPort: joystickLeftPortInput.options[joystickLeftPortInput.selectedIndex].value, rightPort: joystickRightPortInput.options[joystickRightPortInput.selectedIndex].value },
+                "rc-joystick");
         }
     }, 10);
     
@@ -747,4 +751,35 @@ window.onload = () => {
     circle.addEventListener("mouseup", dragEnd, false);
     circle.addEventListener("touchend", dragEnd, false);
     circle.addEventListener("touchcancel", dragEnd, false);
+
+
+    // STEERING WITH TWO MOTORS
+    for (let i = 1; i < 3; i++) {
+        const portInput = document.getElementById("steering-port-" + i);
+        const speedInput = document.getElementById("steering-speed-" + i);
+        let isDragging = false;
+        function sendSpeed() {
+            console.log("speed", speedInput.value);
+            sendToServer({ type: "rc-motor", speed: parseFloat(speedInput.value), port: portInput.options[portInput.selectedIndex].value }, "rc-motor-" + i);
+        }
+        speedInput.addEventListener("input", () => {
+            // called whenever user changes the value
+            isDragging = true;
+            sendSpeed();
+        });
+        speedInput.addEventListener("change", () => {
+            // called whenever user releases slider
+            isDragging = false;
+        });
+        setInterval(() => {
+            if (!isDragging && speedInput.value != 0) {
+                // move slider back to center
+                let value = speedInput.value / (Math.abs(speedInput.value) / (Math.abs(speedInput.value) - 0.01));
+                if (Math.abs(value) < 0.01)
+                    value = 0;
+                speedInput.value = value;
+                sendSpeed();
+            }
+        }, 10);
+    }
 };

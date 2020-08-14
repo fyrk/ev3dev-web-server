@@ -283,21 +283,82 @@
             </div>
         </div>
     </template>
-    <div id="alert-websocket-closed" class="alert alert-danger fixed-bottom m-2" role="alert" hidden>
+    <div id="alert-websocket-closed" class="alert alert-danger fixed-top m-2 ml-auto" role="alert" hidden>
         WebSocket connection closed. Try to <a href="javascript:window.location.reload()">reload the page</a>.
     </div>
     <div class="ml-2 mr-2 mt-3 mb-3">
         <main role="main" class="container-xl">
             <h1>Steering</h1>
+
             <div class="pb-2 text-center">
-                <div id="steering-container">
-                    <div id="steering-dummy"></div>
-                    <div id="large-steering-circle">
-                        <div id="steering-vertical-line"></div>
-                        <div id="steering-middle-dot"></div>
-                        <div id="joystick-steering-circle">
+                <div class="row">
+                    <div class="col-sm-auto order-2 order-sm-1">
+                        <div class="d-sm-flex align-items-sm-center h-100">
+                            <div class="form-group row">
+                                <label for="joystick-left-port" class="col-form-label col-4 d-sm-none text-right">Left motor: </label>
+                                <div class="col-auto">
+                                    <select id="joystick-left-port" class="custom-select">
+                                        <option>A</option>
+                                        <option selected>B</option>
+                                        <option>C</option>
+                                        <option>D</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    <div class="col order-1 order-sm-2">
+                        <div id="steering-container">
+                            <div id="steering-dummy"></div>
+                            <div id="large-steering-circle">
+                                <div id="steering-vertical-line"></div>
+                                <div id="steering-middle-dot"></div>
+                                <div id="joystick-steering-circle">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-auto order-3">
+                        <div class="d-sm-flex align-items-sm-center h-100">
+                            <div class="form-group row">
+                                <label for="joystick-right-port" class="col-form-label col-4 d-sm-none text-right">Right motor: </label>
+                                <div class="col-auto">
+                                    <select id="joystick-right-port" class="custom-select">
+                                        <option>A</option>
+                                        <option>B</option>
+                                        <option selected>C</option>
+                                        <option>D</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group row align-items-center">
+                <div class="col-auto">
+                    <select id="steering-port-1" class="custom-select">
+                        <option value="ev3-ports:outA" selected>A</option>
+                        <option value="ev3-ports:outB">B</option>
+                        <option value="ev3-ports:outC">C</option>
+                        <option value="ev3-ports:outD">D</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <input id="steering-speed-1" type="range" min="-1" max="1" value="0" step="0.01" class="custom-range">
+                </div>
+            </div>
+            <div class="form-group row align-items-center">
+                <div class="col-auto">
+                    <select id="steering-port-2" class="custom-select">
+                        <option value="ev3-ports:outA">A</option>
+                        <option value="ev3-ports:outB">B</option>
+                        <option value="ev3-ports:outC">C</option>
+                        <option value="ev3-ports:outD" selected>D</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <input id="steering-speed-2" type="range" min="-1" max="1" value="0" step="0.01" class="custom-range">
                 </div>
             </div>
 
@@ -313,11 +374,12 @@
     </div>
     <footer class="mt-auto py-3 bg-dark text-white">
         <div class="text-center">
-            <a href="https://github.com/FlorianRaediker/ev3dev-web-server" target="_blank"
-                class="text-white-50">ev3dev-web-server</a> created by Florian Rädiker
-        </div>
-        <div id="error-log">
-            
+            <p>
+                <a href="https://github.com/FlorianRaediker/ev3dev-web-server" target="_blank" class="text-white-50">ev3dev-web-server</a> created by Florian Rädiker
+            </p>
+            <p>
+                Licensed under the terms of the <a href="https://github.com/FlorianRaediker/ev3dev-web-server/blob/master/LICENSE" target="_blank" class="text-white-50">MIT license</a>. 
+            </p>
         </div>
     </footer>
     <script src="main.js"></script>

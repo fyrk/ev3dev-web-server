@@ -26,12 +26,6 @@ LEDS = Leds()
 LEDS.all_off()
 LEDS.reset()
 
-try:
-    move_joystick = MoveJoystick(OUTPUT_B, OUTPUT_C, motor_class=Motor)
-except Exception:
-    traceback.print_exc()
-    move_joystick = None
-
 
 class EV3InfoHandler(tornado.websocket.WebSocketHandler):
     websockets = set()
@@ -48,12 +42,15 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
             EV3InfoHandler.websockets.remove(self)
 
     def on_message(self, messages):
-        global move_joystick
         try:
             print("got messages", messages)
             for message in json.loads(messages):
                 type_ = message["type"]
-                if type_ == "sensor":
+                if type_ == "rc-joystick":
+                    MoveJoystick(message["leftPort"], message["rightPort"]).on(message["x"], message["y"], 1)
+                elif type_ == "rc-motor":
+                    Motor(message["port"]).on(message["speed"]*100)
+                elif type_ == "sensor":
                     port = message["port"]
                     attributes = message["attributes"]
                     device = Sensor()
@@ -77,15 +74,6 @@ class EV3InfoHandler(tornado.websocket.WebSocketHandler):
                         LEDS.leds[color_name + "_" + led_group].brightness_pct = float(brightness)
                     # send changes to other clients
                     EV3InfoHandler.send_to_all(json.dumps({port: attributes}), {self})
-                elif type_ == "rc-joystick:set-pos":
-                    if move_joystick is not None:
-                        move_joystick.on(message["x"], message["y"], 1)
-                elif type_ == "rc-joystick:set-ports":
-                    try:
-                        move_joystick = MoveJoystick(message["port-left"], message["port-right"], motor_class=Motor)
-                    except Exception:
-                        traceback.print_exc()
-                        move_joystick = None
                 else:
                     raise ValueError("Unknown message type '" + type_ + "'")
         except Exception:
@@ -134,7 +122,7 @@ Returns a string containing a JSON object which describes the current motor/sens
 Parameters 'old_sensor_addressse' and 'old_motor_addresses' are sets of previously available adresses. 
 If an address was previously available, only "values" attribute (for sensors) or "position" attribute (for motors) is included.
 This is because these are the only properties that change while the user views the page. 
-If 'all_info' is True, additional info is added: LED brightnesses. 
+If 'all_info' is True, additional info is added that clients need when they connect for the first time: Currently, this is only LED brightnesses. 
 When a WebSocket first connects with the server, get_info(set(), set()) is called so that initially the client receives all attributes (see EV3InfoHandler.open). 
 
 get_info returns: (string containing JSON object, new sensor addresses (for use in the next call of get_info), new motor addresses (for use in the next call of get_info)).
