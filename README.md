@@ -36,6 +36,13 @@ To enable password protection, follow these steps:
 *Note that you should change the password of the `robot` user.* Otherwise, anyone can log in via ssh using the default password (`maker`) and delete or change the `.htpasswd` file.<br>
 The password can be changed via `sudo ev3dev-config`.
 
+
+Screenshot
+----------
+
+[![Screenshot of ev3ev-web-server](docs/screenshot.png)](docs/screenshot.png)
+
+
 Licensing
 -------
 
