@@ -5,21 +5,53 @@ Console("Lat15-Terminus12x6")
 print("Importing modules (this may take a while)...")
 import time
 t1 = time.perf_counter()
-import os
 import json
+import os
+import subprocess
 import time
 import traceback
+from base64 import b64decode
+from shutil import which
+from socket import gethostname
 from threading import Thread, Lock
-from queue import PriorityQueue
-import tornado.web
-import tornado.websocket
+
 import tornado.ioloop
 import tornado.options
+import tornado.web
+import tornado.websocket
+from ev3dev2.led import Leds
 from ev3dev2.motor import list_motors, Motor, MoveJoystick, OUTPUT_B, OUTPUT_C
 from ev3dev2.sensor import list_sensors, Sensor
-from ev3dev2.led import Leds
 t2 = time.perf_counter()
 print("Imported in", t2-t1)
+
+
+# has auth is True if users should be logged in to access the server
+HAS_AUTH = (os.path.exists(".htpasswd")  # check that password file exists ...
+            and which("htpasswd") is not None)  # ... and that program 'htpasswd' exists
+
+class BasicAuthHandler(tornado.web.RequestHandler):
+    def prepare(self):
+        if HAS_AUTH:
+            def request_auth():
+                self.set_header("WWW-Authenticate", 'Basic realm="Connect to ' + gethostname() + '"')
+                self.set_status(401)
+                self.finish()
+                tornado.web.Finish()
+            auth = self.request.headers.get("Authorization")
+            if auth is None or not auth.startswith("Basic "):
+                return request_auth()
+            try:
+                decoded = b64decode(auth.split(maxsplit=1)[1])
+            except Exception:
+                return request_auth()
+            user, pwd = decoded.split(b":", 1)
+            try:
+                proc = subprocess.run(["htpasswd", "-i", "-v", ".htpasswd", user], timeout=1, input=pwd)
+            except subprocess.TimeoutExpired:
+                return request_auth()
+            if proc.returncode != 0:
+                return request_auth()
 
 
 LEDS = Leds()
@@ -27,7 +59,7 @@ LEDS.all_off()
 LEDS.reset()
 
 
-class EV3InfoHandler(tornado.websocket.WebSocketHandler):
+class EV3InfoHandler(BasicAuthHandler, tornado.websocket.WebSocketHandler):
     websockets = set()
     websockets_lock = Lock()
 
@@ -207,7 +239,7 @@ def send_info():
         time.sleep(0.1)
 
 
-class StaticFiles(tornado.web.StaticFileHandler):
+class StaticFiles(BasicAuthHandler, tornado.web.StaticFileHandler):
     def set_extra_headers(self, path):
         self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 
@@ -224,6 +256,8 @@ if __name__ == "__main__":
     )
     app.listen(tornado.options.options.port)
     print("Serving on port", tornado.options.options.port)
+    if HAS_AUTH:
+        print("Basic auth is required when connecting")
     ioloop = tornado.ioloop.IOLoop.current()
     Thread(target=ioloop.start).start()
     Thread(target=send_info).start()

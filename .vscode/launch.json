@@ -7,7 +7,7 @@
         "name": "Download and Run",
         "type": "ev3devBrowser",
         "request": "launch",
-        "program": "/home/robot/ev3dev-web-server/server.py",
+        "program": "/home/robot/${workspaceFolderBasename}/server.py",
         "interactiveTerminal": true
     }]
 }

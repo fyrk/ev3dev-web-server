@@ -5,7 +5,8 @@ This simple web server for [ev3dev](https://github.com/ev3dev/ev3dev) enables th
 
 * Monitor sensor values and motor positions
 * Control motors by sending commands
-* Changing sensor mode
+* Change sensor modes
+* Steer the robot using a joystick-like interface
 
 This project consists of two components:
 
@@ -17,13 +18,23 @@ Getting Started
 ---------------
 
 1. Copy this repository to your ev3dev device, e.g. by cloning.
-2. Install `tornado`: 
-```
-$ sudo apt-get install python3-tornado
-```
+2. Install `tornado`:<br>
+   `$ sudo apt install python3-tornado`
 3. Run `python3 server.py`.
 4. In a browser, open `<ev3dev ip>:8000`.
 
+### Password Protection
+Access to the website can optionally be protected by a username and password, using [HTTP Basic Authentication](https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication).<br>
+To enable password protection, follow these steps:
+
+ 1. Install `htpasswd`, which is included in `apache2-utils`:<br>
+    `$ sudo apt install apache2-utils`
+ 2. `cd` into the `ev3dev-web-server` directory, then create a `.htpasswd` file (replace `<username>` by a username of your choice):<br>
+    `$ htpasswd -c .htpasswd <username>`
+ 3. Users are now asked to authenticate before they can access the website.
+
+*Note that you should change the password of the `robot` user.* Otherwise, anyone can log in via ssh using the default password (`maker`) and delete or change the `.htpasswd` file.<br>
+The password can be changed via `sudo ev3dev-config`.
 
 Licensing
 -------
