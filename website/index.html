@@ -61,7 +61,11 @@
             width: fit-content;
             width: -moz-fit-content;
         }
-
+        @media (min-width: 576px) {
+            #alert-websocket-closed {
+                top: .5rem;
+            }
+        }
 
         /* ================ */
         /* Joystick */
@@ -287,8 +291,10 @@
             </div>
         </div>
     </template>
-    <div id="alert-websocket-closed" class="alert alert-danger fixed-top m-2 ml-auto" role="alert" hidden>
-        WebSocket connection closed. Try to <a href="javascript:window.location.reload()" class="alert-link">reload the page</a>.
+    <div class="container-xl sticky-top p-0">
+        <div id="alert-websocket-closed" class="alert alert-danger text-center mb-0 mx-auto m-sm-2 ml-sm-auto mr-sm-0" role="alert" hidden>
+            WebSocket connection closed. Try to <a href="javascript:window.location.reload()" class="alert-link">reload the page</a>.
+        </div>
     </div>
     <div class="ml-2 mr-2 mt-3 mb-3">
         <main role="main" class="container-xl">
