@@ -291,6 +291,16 @@
             </div>
         </div>
     </template>
+    <div id="ie-not-supported" class="alert alert-danger sticky-top text-center" hidden>
+        <h1 class="alert-heading">Internet Explorer is not supported</h1>
+        <span style="font-size: x-large">Please use a modern browser</span>
+    </div>
+    <script>
+        // display notice if browser is IE
+        if (/(MSIE|Trident)/.test(window.navigator.userAgent)) {
+            document.getElementById("ie-not-supported").hidden = false;
+        }
+    </script>
     <div class="container-xl sticky-top p-0">
         <div id="alert-websocket-closed" class="alert alert-danger text-center mb-0 mx-auto m-sm-2 ml-sm-auto mr-sm-0" role="alert" hidden>
             WebSocket connection closed. Try to <a href="javascript:window.location.reload()" class="alert-link">reload the page</a>.
