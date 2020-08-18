@@ -48,4 +48,4 @@ Licensing
 
 This project is licensed under the terms of the MIT license, see [LICENSE](LICENSE).
 
-This project uses Bootstrap v4.4.1, see [website/bootstrap.min.css](website/bootstrap.min.css).
+This project uses Bootstrap v4.5.2, see [website/bootstrap.min.css](website/bootstrap.min.css).
