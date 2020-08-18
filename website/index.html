@@ -65,13 +65,17 @@
 
         /* ================ */
         /* Joystick */
+        #joystick-col {
+            max-width: 530px;  /* 500px + (2* 15px) (15px is padding) */
+        }
+
         #steering-container {
             display: inline-block;
             position: relative;
             width: 100%;
             max-width: 500px;
-            
         }
+
         #steering-dummy {
             margin-top: 100%;
         }
@@ -291,8 +295,8 @@
             <h1>Steering</h1>
 
             <div class="pb-2 text-center">
-                <div class="row">
-                    <div class="col-sm-auto order-2 order-sm-1">
+                <div class="row justify-content-sm-center">
+                    <div class="col-sm-auto order-3 order-sm-2">
                         <div class="d-sm-flex align-items-sm-center h-100">
                             <div class="form-group row">
                                 <label for="joystick-left-port" class="col-form-label col-4 d-sm-none text-right">Left motor: </label>
@@ -307,7 +311,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col order-1 order-sm-2">
+                    <div class="col order-1 order-sm-3" id="joystick-col">
                         <div id="steering-container">
                             <div id="steering-dummy"></div>
                             <div id="large-steering-circle">
@@ -318,7 +322,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-auto order-3">
+                    <div class="col-sm-auto order-4">
                         <div class="d-sm-flex align-items-sm-center h-100">
                             <div class="form-group row">
                                 <label for="joystick-right-port" class="col-form-label col-4 d-sm-none text-right">Right motor: </label>
