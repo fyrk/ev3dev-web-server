@@ -59,6 +59,13 @@ LEDS.all_off()
 LEDS.reset()
 
 
+move_joystick = None
+motors = {}
+old_joystick_left_port = None
+old_joystick_right_port = None
+old_motor_1_port = None
+old_motor_2_port = None
+
 class EV3InfoHandler(BasicAuthHandler, tornado.websocket.WebSocketHandler):
     websockets = set()
     websockets_lock = Lock()
@@ -74,14 +81,21 @@ class EV3InfoHandler(BasicAuthHandler, tornado.websocket.WebSocketHandler):
             EV3InfoHandler.websockets.remove(self)
 
     def on_message(self, messages):
+        global move_joystick
         try:
             print("got messages", messages)
             for message in json.loads(messages):
                 type_ = message["type"]
                 if type_ == "rc-joystick":
-                    MoveJoystick(message["leftPort"], message["rightPort"]).on(message["x"], message["y"], 1)
+                    if message["leftPort"] != old_joystick_left_port or message["rightPort"] != old_joystick_right_port:
+                        move_joystick = MoveJoystick(message["leftPort"], message["rightPort"])
+                    move_joystick.on(message["x"], message["y"], 1)
                 elif type_ == "rc-motor":
-                    Motor(message["port"]).on(message["speed"]*100)
+                    if message["port"] in motors:
+                        motor = motors[message["port"]]
+                    else:
+                        motor = motors[message["port"]] = Motor(message["port"])
+                    motor.on(message["speed"]*100)
                 elif type_ == "sensor":
                     port = message["port"]
                     attributes = message["attributes"]
