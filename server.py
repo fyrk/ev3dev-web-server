@@ -99,7 +99,7 @@ class EV3InfoHandler(BasicAuthHandler, tornado.websocket.WebSocketHandler):
                 elif type_ == "sensor":
                     port = message["port"]
                     attributes = message["attributes"]
-                    device = Sensor()
+                    device = Sensor(port)
                     for name, value in attributes.items():
                         setattr(device, name, value)
                     # send changes to other clients
