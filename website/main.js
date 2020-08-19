@@ -676,6 +676,9 @@ window.onload = () => {
     // STEERING WITH JOYSTICK
     const joystickLeftPortInput = document.getElementById("joystick-left-port");
     const joystickRightPortInput = document.getElementById("joystick-right-port");
+    const joystickSensitivityInput = document.getElementById("joystick-sensitivity");
+    let joystickSensitivity = joystickSensitivityInput.value;
+    joystickSensitivityInput.addEventListener("change", () => joystickSensitivity = joystickSensitivityInput.value);
 
     const circle = document.getElementById("large-steering-circle");
     const joystick = document.getElementById("joystick-steering-circle");
@@ -685,7 +688,6 @@ window.onload = () => {
     let isDragging = false;
     let currentX = 0;
     let currentY = 0;
-    let hasPosChanged = false;
     function dragStart(event) {
         isDragging = true;
         setPosition(event);
@@ -717,41 +719,19 @@ window.onload = () => {
             currentX = currentX / (distance / circleRadiusSmaller);
             currentY = currentY / (distance / circleRadiusSmaller);
         }
-        hasPosChanged = true;
         setJoystickPosition();
     }
     function dragEnd(event) {
         isDragging = false;
+        currentX = 0;
+        currentY = 0;
+        setJoystickPosition();
     }
     function setJoystickPosition() {
         joystick.style.transform = "translate(" + currentX + "px," + currentY + "px)";
-    }
-
-    let counter = 0;
-    setInterval(() => {
-        if (!isDragging && (currentX !== 0 || currentY !== 0)) {
-            // move circle back to center
-            let distance = Math.sqrt(currentX * currentX + currentY * currentY);
-            distance = distance / (distance - (circleRadius / 100));
-            currentX = currentX / distance;
-            currentY = currentY / distance;
-            if (Math.abs(currentX) < circleRadius / 100) {
-                currentX = 0;
-            }
-            if (Math.abs(currentY) < circleRadius / 100) {
-                currentY = 0;
-            }
-            setJoystickPosition();
-            hasPosChanged = true;
-        }
-        counter++;
-        if (counter > 20 && hasPosChanged) {
-            counter = 0;
-            hasPosChanged = false;
-            sendToServer({ type: "rc-joystick", x: currentX / circleRadius, y: -currentY / circleRadius, leftPort: joystickLeftPortInput.options[joystickLeftPortInput.selectedIndex].value, rightPort: joystickRightPortInput.options[joystickRightPortInput.selectedIndex].value },
+        sendToServer({ type: "rc-joystick", x: currentX / circleRadius * joystickSensitivity, y: -currentY / circleRadius * joystickSensitivity, leftPort: joystickLeftPortInput.options[joystickLeftPortInput.selectedIndex].value, rightPort: joystickRightPortInput.options[joystickRightPortInput.selectedIndex].value },
                 "rc-joystick");
-        }
-    }, 10);
+    }
     
     function resize() {
         circleRadius = circle.clientHeight / 2;

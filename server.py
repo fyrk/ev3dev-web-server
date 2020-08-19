@@ -89,7 +89,10 @@ class EV3InfoHandler(BasicAuthHandler, tornado.websocket.WebSocketHandler):
                 if type_ == "rc-joystick":
                     if message["leftPort"] != old_joystick_left_port or message["rightPort"] != old_joystick_right_port:
                         move_joystick = MoveJoystick(message["leftPort"], message["rightPort"])
-                    move_joystick.on(message["x"], message["y"], 1)
+                    if message["x"] == 0 and message["y"] == 0:
+                        move_joystick.off(brake=False)
+                    else:
+                        move_joystick.on(message["x"], message["y"], 1)
                 elif type_ == "rc-motor":
                     if message["port"] in motors:
                         motor = motors[message["port"]]
