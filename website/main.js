@@ -386,6 +386,27 @@ class SensorValuesAttributeSetter extends AttributeSetter {
                             "1": "Pressed (1)"
                         }[value] || value;
                         break;
+                    case "ms-line-leader":
+                        if (this.device.attributeValues["mode"] === "CAL") {
+                            let values = value.split(" ");
+                            let t = "";
+                            for (let v of values) {
+                                let color = parseInt(v) * 2.55;
+                                t += `<span class="black-border-rect" style="background-color: rgb(${color}, ${color}, ${color})"></span>`;
+                            }
+                            translated = t;
+                            break;
+                        } else if (this.device.attributeValues["mode"] === "RAW") {
+                            let values = value.split(" ");
+                            let t = "";
+                            for (let v of values) {
+                                let color = parseInt(v);
+                                t += `<span class="black-border-rect" style="background-color: rgb(${color}, ${color}, ${color})"></span>`;
+                            }
+                            translated = t;
+                            break;
+                        }
+                        break;
                     /*case "lego-ev3-ir":
                         if (this.device.attributeValues["mode"] === "IR-REMOVE") {
                             const values = value.split(' ');
