@@ -143,7 +143,7 @@ class SensorDevice extends Device {
             "values": new SensorValuesAttributeSetter(this, card.getElementsByClassName("values")[0]),
             "driver_name": new DriverNameAttributeSetter(this, card.getElementsByClassName("port")[0]),
             "mode": new SelectAttributeSetter(this, card.getElementsByClassName("mode")[0]),
-            "command": new InputAttributeSetter(this, card.getElementsByClassName("command")[0])
+            "command": new SelectAttributeSetter(this, card.getElementsByClassName("command")[0])
         };
         this.attributeSenders = {
             "mode": new SelectAttributeSender(this, "mode", card.getElementsByClassName("mode")[0]),
